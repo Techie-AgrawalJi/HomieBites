@@ -207,7 +207,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
     user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000);
     await user.save();
     const resetUrl = `${process.env.FRONTEND_BASE_URL}/reset-password/${token}`;
-    await sendEmail(email, 'NestEase Password Reset', `
+    await sendEmail(email, 'HomieBites Password Reset', `
       <h2>Password Reset</h2>
       <p>Click the link below to reset your password (valid for 1 hour):</p>
       <a href="${resetUrl}">${resetUrl}</a>
@@ -241,3 +241,4 @@ export const resetPassword = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+

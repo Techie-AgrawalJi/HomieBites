@@ -19,7 +19,7 @@ const storage = hasCloudinaryConfig
   ? new CloudinaryStorage({
       cloudinary,
       params: {
-        folder: 'nestease',
+        folder: 'homiebites',
         allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
       } as any,
     })
@@ -31,3 +31,4 @@ if (!hasCloudinaryConfig) {
 
 export const upload = multer({ storage });
 export default cloudinary;
+

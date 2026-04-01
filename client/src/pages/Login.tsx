@@ -50,7 +50,7 @@ const Login = () => {
       <div className="auth-container w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="font-heading page-title font-bold mb-2">Welcome back</h1>
-          <p className="opacity-60 page-subtitle">Sign in to your NestEase account</p>
+          <p className="opacity-60 page-subtitle">Sign in to your HomieBites account</p>
         </div>
 
         <div ref={formRef} className="glass rounded-2xl auth-card">
@@ -107,9 +107,9 @@ const Login = () => {
 
         <div className="mt-6 glass rounded-xl p-4 text-xs opacity-50 text-center">
           <p className="font-medium mb-1">Demo accounts</p>
-          <p>Admin: admin@nestease.com / password123</p>
-          <p>Provider: rahul@nestease.com / password123</p>
-          <p>User: user@nestease.com / password123</p>
+          <p>Admin: admin@homiebites.com / password123</p>
+          <p>Provider: rahul@homiebites.com / password123</p>
+          <p>User: user@homiebites.com / password123</p>
         </div>
       </div>
     </div>
@@ -117,3 +117,4 @@ const Login = () => {
 };
 
 export default Login;
+

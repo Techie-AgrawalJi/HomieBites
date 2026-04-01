@@ -43,7 +43,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/payments', paymentRoutes);
 
 app.get('/api/health', (_req, res) => {
-  res.json({ success: true, message: 'NestEase API is running' });
+  res.json({ success: true, message: 'HomieBites API is running' });
 });
 
 export default app;

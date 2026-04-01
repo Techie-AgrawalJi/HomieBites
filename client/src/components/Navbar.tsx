@@ -2,7 +2,6 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/all';
 import { Moon, Sun, Menu, X, Home, Building2, UtensilsCrossed, User, LogOut, LayoutDashboard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -15,17 +14,27 @@ const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
 
   useGSAP(() => {
     if (!navRef.current) return;
-    gsap.from(navRef.current, { y: -80, opacity: 0, duration: 0.8, ease: 'power3.out' });
-
-    ScrollTrigger.create({
-      start: 'top -60',
-      onEnter: () => gsap.to(navRef.current, { paddingTop: '0.5rem', paddingBottom: '0.5rem', duration: 0.3 }),
-      onLeaveBack: () => gsap.to(navRef.current, { paddingTop: '1rem', paddingBottom: '1rem', duration: 0.3 }),
-    });
+    gsap.fromTo(
+      navRef.current,
+      { y: -80, opacity: 0 },
+      { y: 0, opacity: 1, duration: 0.8, ease: 'power3.out', clearProps: 'transform,opacity' }
+    );
   }, []);
+
+  useEffect(() => {
+    const onScroll = () => setIsScrolled(window.scrollY > 60);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    if (menuOpen) setMenuOpen(false);
+  }, [location.pathname]);
 
   const handleLogout = async () => {
     await logout();
@@ -47,14 +56,17 @@ const Navbar = () => {
   ];
 
   return (
-    <nav ref={navRef} className="sticky top-0 z-50 glass py-3 sm:py-4 px-3 sm:px-6 md:px-12 transition-all duration-300">
+    <nav
+      ref={navRef}
+      className={`sticky top-0 z-50 glass px-3 sm:px-6 md:px-12 transition-all duration-300 ${isScrolled ? 'py-2' : 'py-3 sm:py-4'}`}
+    >
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 group">
           <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center">
             <Building2 size={18} className="text-white" />
           </div>
           <span className="font-heading text-lg sm:text-xl font-bold">
-            Nest<span className="text-amber-500">Ease</span>
+            Homie<span className="text-amber-500">Bites</span>
           </span>
         </Link>
 

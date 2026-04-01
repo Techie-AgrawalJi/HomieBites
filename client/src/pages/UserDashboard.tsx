@@ -86,7 +86,7 @@ const UserDashboard = () => {
         key: import.meta.env.VITE_RAZORPAY_KEY_ID,
         amount,
         currency,
-        name: 'NestEase',
+        name: 'HomieBites',
         description: 'Booking Payment',
         order_id: orderId,
         handler: async (response: any) => {
@@ -306,3 +306,4 @@ const UserDashboard = () => {
 };
 
 export default UserDashboard;
+

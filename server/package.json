@@ -1,5 +1,5 @@
 {
-  "name": "nestease-server",
+  "name": "homiebites-server",
   "version": "1.0.0",
   "private": true,
   "type": "commonjs",
@@ -38,3 +38,4 @@
     "typescript": "^5.5.3"
   }
 }
+

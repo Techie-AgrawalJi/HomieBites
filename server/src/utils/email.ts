@@ -13,7 +13,7 @@ const transporter = nodemailer.createTransport({
 export const sendEmail = async (to: string, subject: string, html: string) => {
   try {
     await transporter.sendMail({
-      from: `NestEase <${process.env.SENDER_EMAIL}>`,
+      from: `HomieBites <${process.env.SENDER_EMAIL}>`,
       to,
       subject,
       html,
@@ -22,3 +22,4 @@ export const sendEmail = async (to: string, subject: string, html: string) => {
     console.error('Email send error:', err);
   }
 };
+

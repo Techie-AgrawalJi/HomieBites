@@ -14,8 +14,9 @@ mongod --dbpath "$DATA_DIR" --logpath "$LOG_FILE" --bind_ip 127.0.0.1 --port 270
 MONGOD_PID=$!
 
 echo "MongoDB started with PID $MONGOD_PID"
-echo "Starting NestEase API server (will retry MongoDB connection)..."
+echo "Starting HomieBites API server (will retry MongoDB connection)..."
 
 # Start Express server — it has its own retry logic for MongoDB
 cd /home/runner/workspace/server
 npm run dev
+

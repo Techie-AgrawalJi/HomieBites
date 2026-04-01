@@ -53,7 +53,7 @@ const Signup = () => {
       if (role === 'user') {
         await api.post('/auth/signup', form);
         await refetch();
-        toast.success('Welcome to NestEase!');
+        toast.success('Welcome to HomieBites!');
         navigate('/');
       } else {
         const fd = new FormData();
@@ -77,7 +77,7 @@ const Signup = () => {
       <div className="auth-container w-full max-w-lg">
         <div className="text-center mb-8">
           <h1 className="font-heading page-title font-bold mb-2">Create Account</h1>
-          <p className="opacity-60 page-subtitle">Join NestEase - find your perfect home</p>
+          <p className="opacity-60 page-subtitle">Join HomieBites - find your perfect home</p>
         </div>
 
         {/* Role selector */}
@@ -195,3 +195,4 @@ const Signup = () => {
 };
 
 export default Signup;
+

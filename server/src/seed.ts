@@ -1,5 +1,18 @@
 import dotenv from 'dotenv';
-dotenv.config();
+import fs from 'fs';
+import path from 'path';
+
+const envCandidates = [
+  path.resolve(process.cwd(), '.env'),
+  path.resolve(__dirname, '../../.env'),
+];
+
+for (const envPath of envCandidates) {
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+    break;
+  }
+}
 
 import mongoose from 'mongoose';
 import User from './models/User';
@@ -18,7 +31,7 @@ const seed = async () => {
 
   const admin = await User.create({
     name: 'Super Admin',
-    email: 'admin@nestease.com',
+    email: 'admin@homiebites.com',
     phone: '9999999999',
     city: 'Mumbai',
     password: 'password123',
@@ -26,15 +39,15 @@ const seed = async () => {
   });
 
   const providerUsers = await User.create([
-    { name: 'Rahul Sharma', email: 'rahul@nestease.com', phone: '9876543210', city: 'Bangalore', password: 'password123', role: 'provider' },
-    { name: 'Priya Nair', email: 'priya@nestease.com', phone: '9876543211', city: 'Pune', password: 'password123', role: 'provider' },
-    { name: 'Amit Singh', email: 'amit@nestease.com', phone: '9876543212', city: 'Delhi', password: 'password123', role: 'provider' },
-    { name: 'Sneha Patel', email: 'sneha@nestease.com', phone: '9876543213', city: 'Hyderabad', password: 'password123', role: 'provider' },
+    { name: 'Rahul Sharma', email: 'rahul@homiebites.com', phone: '9876543210', city: 'Bangalore', password: 'password123', role: 'provider' },
+    { name: 'Priya Nair', email: 'priya@homiebites.com', phone: '9876543211', city: 'Pune', password: 'password123', role: 'provider' },
+    { name: 'Amit Singh', email: 'amit@homiebites.com', phone: '9876543212', city: 'Delhi', password: 'password123', role: 'provider' },
+    { name: 'Sneha Patel', email: 'sneha@homiebites.com', phone: '9876543213', city: 'Hyderabad', password: 'password123', role: 'provider' },
   ]);
 
   const testUser = await User.create({
     name: 'Test User',
-    email: 'user@nestease.com',
+    email: 'user@homiebites.com',
     phone: '9876543200',
     city: 'Bangalore',
     password: 'password123',
@@ -46,7 +59,7 @@ const seed = async () => {
       user: providerUsers[0]._id,
       businessName: 'Sharma PG Homes',
       businessPhone: '9876543210',
-      businessEmail: 'rahul@nestease.com',
+      businessEmail: 'rahul@homiebites.com',
       businessAddress: 'Koramangala, Bangalore',
       city: 'Bangalore',
       serviceType: 'both',
@@ -57,7 +70,7 @@ const seed = async () => {
       user: providerUsers[1]._id,
       businessName: 'Nair Residences',
       businessPhone: '9876543211',
-      businessEmail: 'priya@nestease.com',
+      businessEmail: 'priya@homiebites.com',
       businessAddress: 'Baner, Pune',
       city: 'Pune',
       serviceType: 'pg',
@@ -68,7 +81,7 @@ const seed = async () => {
       user: providerUsers[2]._id,
       businessName: 'Singh Mess Services',
       businessPhone: '9876543212',
-      businessEmail: 'amit@nestease.com',
+      businessEmail: 'amit@homiebites.com',
       businessAddress: 'Lajpat Nagar, Delhi',
       city: 'Delhi',
       serviceType: 'meal',
@@ -79,7 +92,7 @@ const seed = async () => {
       user: providerUsers[3]._id,
       businessName: 'Patel Homes',
       businessPhone: '9876543213',
-      businessEmail: 'sneha@nestease.com',
+      businessEmail: 'sneha@homiebites.com',
       businessAddress: 'Banjara Hills, Hyderabad',
       city: 'Hyderabad',
       serviceType: 'both',
@@ -505,9 +518,9 @@ const seed = async () => {
 ✅ Database seeded successfully!
 ──────────────────────────────────
 Test Accounts:
-  Admin:    admin@nestease.com / password123
-  Provider: rahul@nestease.com / password123
-  User:     user@nestease.com  / password123
+  Admin:    admin@homiebites.com / password123
+  Provider: rahul@homiebites.com / password123
+  User:     user@homiebites.com  / password123
 ──────────────────────────────────
 Created:
   4 Provider accounts
@@ -523,3 +536,4 @@ seed().catch((err) => {
   console.error('Seed error:', err);
   process.exit(1);
 });
+

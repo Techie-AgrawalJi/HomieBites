@@ -13,11 +13,11 @@ import MealModal from '../components/MealModal';
 const CITIES = ['Bangalore', 'Mumbai', 'Delhi', 'Pune', 'Hyderabad', 'Chennai', 'Kolkata', 'Ahmedabad', 'Jaipur', 'Kochi'];
 
 const TESTIMONIALS = [
-  { name: 'Arjun Mehta', role: 'Software Engineer, Bangalore', text: 'NestEase helped me find a great PG in Koramangala within a day. The meal subscription nearby is amazing!', rating: 5 },
+  { name: 'Arjun Mehta', role: 'Software Engineer, Bangalore', text: 'HomieBites helped me find a great PG in Koramangala within a day. The meal subscription nearby is amazing!', rating: 5 },
   { name: 'Priya Krishnan', role: 'MBA Student, Pune', text: 'The filters made it so easy to find a girls-only PG under my budget. Highly recommend!', rating: 5 },
-  { name: 'Rohit Verma', role: 'Fresher, Delhi', text: 'Relocated from Patna and NestEase sorted out both my PG and food in one go. Life-saver!', rating: 5 },
+  { name: 'Rohit Verma', role: 'Fresher, Delhi', text: 'Relocated from Patna and HomieBites sorted out both my PG and food in one go. Life-saver!', rating: 5 },
   { name: 'Ananya Singh', role: 'Consultant, Hyderabad', text: 'The GSAP animations are so smooth! But more importantly, found a luxury PG in Banjara Hills.', rating: 4 },
-  { name: 'Kabir Nair', role: 'Data Scientist, Bangalore', text: 'BangaloreMeals Co. has the healthiest keto meal plan I\'ve found. Thank you NestEase!', rating: 5 },
+  { name: 'Kabir Nair', role: 'Data Scientist, Bangalore', text: 'BangaloreMeals Co. has the healthiest keto meal plan I\'ve found. Thank you HomieBites!', rating: 5 },
 ];
 
 const WHY_FEATURES = [
@@ -43,13 +43,22 @@ const Landing = () => {
   const [mealDetail, setMealDetail] = useState<any>(null);
 
   useEffect(() => {
-    Promise.all([
+    Promise.allSettled([
       api.get('/pg', { params: { page: 1, limit: 24 } }),
       api.get('/meal', { params: { page: 1, limit: 24 } }),
     ]).then(([pgRes, mealRes]) => {
-      setFeaturedPG(pgRes.data?.data?.listings || []);
-      setFeaturedMeal(mealRes.data?.data?.services || []);
-    }).catch(() => {});
+      if (pgRes.status === 'fulfilled') {
+        setFeaturedPG(pgRes.value.data?.data?.listings || []);
+      } else {
+        setFeaturedPG([]);
+      }
+
+      if (mealRes.status === 'fulfilled') {
+        setFeaturedMeal(mealRes.value.data?.data?.services || []);
+      } else {
+        setFeaturedMeal([]);
+      }
+    });
   }, []);
 
   useGSAP(() => {
@@ -144,7 +153,7 @@ const Landing = () => {
       {/* How It Works */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
         <div className="text-center mb-14">
-          <h2 className="font-heading page-title text-3xl md:text-4xl font-bold mb-4">How NestEase Works</h2>
+          <h2 className="font-heading page-title text-3xl md:text-4xl font-bold mb-4">How HomieBites Works</h2>
           <p className="opacity-60 max-w-xl mx-auto">Three simple steps to your perfect accommodation and meals</p>
         </div>
         <div className="grid md:grid-cols-3 gap-8">
@@ -201,11 +210,11 @@ const Landing = () => {
         </section>
       )}
 
-      {/* Why NestEase */}
+      {/* Why HomieBites */}
       <section className="py-20 dot-grid relative">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-14">
-            <h2 className="font-heading page-title text-3xl md:text-4xl font-bold mb-4">Why Choose NestEase?</h2>
+            <h2 className="font-heading page-title text-3xl md:text-4xl font-bold mb-4">Why Choose HomieBites?</h2>
             <p className="opacity-60 max-w-xl mx-auto">We make relocating easy, safe, and affordable</p>
           </div>
           {WHY_FEATURES.length > 0 ? (
@@ -273,7 +282,7 @@ const Landing = () => {
           <div className="absolute inset-0 bg-gradient-to-r from-amber-500/10 to-purple-500/10" />
           <div className="relative z-10">
             <h2 className="font-heading page-title text-3xl md:text-4xl font-bold mb-4">Ready to Find Your Nest?</h2>
-            <p className="opacity-70 mb-8 max-w-xl mx-auto">Join thousands of students and professionals who found their perfect stay with NestEase.</p>
+            <p className="opacity-70 mb-8 max-w-xl mx-auto">Join thousands of students and professionals who found their perfect stay with HomieBites.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link to="/signup" className="px-8 py-3 bg-amber-500 text-white rounded-full font-semibold hover:bg-amber-600 transition-colors">Get Started Free</Link>
               <Link to="/pg" className="px-8 py-3 glass rounded-full font-semibold hover:border-amber-500/50 transition-all">Browse Listings</Link>
@@ -303,3 +312,4 @@ const Landing = () => {
 };
 
 export default Landing;
+
