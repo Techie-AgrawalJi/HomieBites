@@ -5,6 +5,10 @@ import { AuthRequest } from '../middleware/auth';
 
 export const createBooking = async (req: AuthRequest, res: Response) => {
   try {
+    if (req.user.role === 'provider' || req.user.role === 'superadmin' || req.user.role === 'admin') {
+      return res.status(403).json({ success: false, message: 'Providers and admins cannot create booking requests' });
+    }
+
     const { listing, listingType, provider, bookingDetails, paymentAmount } = req.body;
     const booking = await Booking.create({
       user: req.user._id,

@@ -27,6 +27,7 @@ const MealModal: React.FC<MealModalProps> = ({ meal, detail, onClose, onViewPG }
   const [activeTab, setActiveTab] = useState<'menu' | 'plans' | 'kitchen'>('menu');
   const [nearbyEdge, setNearbyEdge] = useState({ left: false, right: false });
   const { user } = useAuth();
+  const isBookingRestrictedUser = ['provider', 'superadmin', 'admin'].includes(user?.role || '');
   const rawPhotos = Array.isArray(meal.photos) ? meal.photos : [];
   const photos = rawPhotos
     .filter((src: unknown): src is string => typeof src === 'string')
@@ -186,6 +187,7 @@ const MealModal: React.FC<MealModalProps> = ({ meal, detail, onClose, onViewPG }
 
   const handleSubscribe = async (plan: any) => {
     if (!user) { toast.error('Please login to subscribe'); return; }
+    if (isBookingRestrictedUser) { toast.error('Provider and admin accounts cannot create booking requests'); return; }
     try {
       await api.post('/bookings', {
         listing: meal._id,
@@ -278,12 +280,19 @@ const MealModal: React.FC<MealModalProps> = ({ meal, detail, onClose, onViewPG }
                   <p className="font-semibold">{plan.name}</p>
                   <p className="text-2xl font-bold text-amber-500 my-1">₹{plan.price?.toLocaleString()}</p>
                   <p className="text-xs opacity-60">{plan.duration} · {plan.mealsPerDay} meals/day</p>
-                  <button onClick={() => handleSubscribe(plan)} className="w-full mt-3 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition-colors">
+                  <button
+                    onClick={() => handleSubscribe(plan)}
+                    disabled={isBookingRestrictedUser}
+                    className="w-full mt-3 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-amber-500"
+                  >
                     Subscribe
                   </button>
                 </div>
               ))}
             </div>
+            {isBookingRestrictedUser && (
+              <p className="mt-3 text-xs text-red-400">Provider and admin accounts cannot send booking or subscription requests.</p>
+            )}
           </div>
 
           {/* Tabs */}

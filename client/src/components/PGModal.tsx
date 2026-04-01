@@ -26,6 +26,7 @@ const PGModal: React.FC<PGModalProps> = ({ pg, detail, onClose, onViewMeal }) =>
   const [nearbyEdge, setNearbyEdge] = useState({ left: false, right: false });
   const [booking, setBooking] = useState({ roomType: '', message: '', startDate: '' });
   const { user } = useAuth();
+  const isBookingRestrictedUser = ['provider', 'superadmin', 'admin'].includes(user?.role || '');
   const rawPhotos = Array.isArray(pg.photos) ? pg.photos : [];
   const photos = rawPhotos
     .filter((src: unknown): src is string => typeof src === 'string')
@@ -178,6 +179,7 @@ const PGModal: React.FC<PGModalProps> = ({ pg, detail, onClose, onViewMeal }) =>
 
   const handleBook = async () => {
     if (!user) { toast.error('Please login to book'); return; }
+    if (isBookingRestrictedUser) { toast.error('Provider and admin accounts cannot create booking requests'); return; }
     try {
       await api.post('/bookings', {
         listing: pg._id,
@@ -353,7 +355,14 @@ const PGModal: React.FC<PGModalProps> = ({ pg, detail, onClose, onViewMeal }) =>
                 </select>
                 <input type="date" value={booking.startDate} onChange={(e) => setBooking({ ...booking, startDate: e.target.value })} className="w-full px-3 py-2 glass rounded-lg text-sm outline-none" />
                 <textarea value={booking.message} onChange={(e) => setBooking({ ...booking, message: e.target.value })} placeholder="Message to provider (optional)" rows={3} className="w-full px-3 py-2 glass rounded-lg text-sm outline-none resize-none" />
-                <button onClick={handleBook} className="w-full py-2.5 bg-amber-500 text-white rounded-xl font-semibold hover:bg-amber-600 transition-colors">
+                {isBookingRestrictedUser && (
+                  <p className="text-xs text-red-400">Provider and admin accounts cannot send booking requests.</p>
+                )}
+                <button
+                  onClick={handleBook}
+                  disabled={isBookingRestrictedUser}
+                  className="w-full py-2.5 bg-amber-500 text-white rounded-xl font-semibold hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-amber-500"
+                >
                   Send Booking Request
                 </button>
               </div>
