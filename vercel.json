@@ -1,24 +1,9 @@
 {
   "version": 2,
   "installCommand": "npm install && npm --prefix client install && npm --prefix server install --legacy-peer-deps",
-  "builds": [
-    {
-      "src": "client/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    },
-    {
-      "src": "api/index.ts",
-      "use": "@vercel/node"
-    }
-  ],
+  "buildCommand": "npm --prefix client run build",
+  "outputDirectory": "client/dist",
   "routes": [
-    {
-      "src": "/api",
-      "dest": "/api/index.ts"
-    },
     {
       "src": "/api/(.*)",
       "dest": "/api/index.ts"

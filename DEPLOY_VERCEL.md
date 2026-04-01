@@ -1,6 +1,6 @@
 # Vercel Deployment Guide
 
-This repo is now configured for a single Vercel project:
+This repo is configured for a single Vercel project:
 - Frontend: static Vite app from `client`
 - Backend: serverless function at `api/index.ts` using Express app from `server/src/app.ts`
 
@@ -25,8 +25,10 @@ Set these for Preview and Production:
 - `JWT_SECRET` = strong random secret
 - `FRONTEND_BASE_URL` = your Vercel app URL (e.g. `https://your-app.vercel.app`)
 - `SENDER_EMAIL` = from-email (if mail flow enabled)
-- `EMAIL_USER` = SMTP username
-- `EMAIL_PASS` = SMTP password
+- `SMTP_HOST` = SMTP server host
+- `SMTP_PORT` = SMTP server port
+- `SMTP_USER` = SMTP username
+- `SMTP_PASS` = SMTP password
 - `RAZORPAY_KEY_ID` = Razorpay key id
 - `RAZORPAY_KEY_SECRET` = Razorpay key secret
 - `CLOUDINARY_CLOUD_NAME` = Cloudinary cloud name
@@ -41,6 +43,7 @@ If you already use additional env vars in server `.env`, add all of them in Verc
 2. Verify:
    - `https://<your-domain>/api/health` returns success JSON
    - Home page loads
+   - Static files load (open DevTools -> Network; `assets/*.js` should be 200)
    - Login/signup works
    - Listing APIs work from UI
 
@@ -65,3 +68,7 @@ This still runs client + server locally as before.
    - Ensure `FRONTEND_BASE_URL` matches deployed URL.
 3. Payment/upload failures:
    - Verify Razorpay/Cloudinary keys are set in same environment.
+4. Static files return `404` after successful deploy:
+   - Confirm `vercel.json` contains `outputDirectory: client/dist`.
+   - Confirm build logs include `dist/index.html` and `dist/assets/*`.
+   - Hard refresh once to clear stale HTML/chunk references.
