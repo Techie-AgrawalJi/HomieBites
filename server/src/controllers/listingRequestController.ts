@@ -381,6 +381,117 @@ export const resubmitListing = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const editListingRequest = async (req: AuthRequest, res: Response) => {
+  try {
+    const providerDoc = await Provider.findOne({ user: req.user._id });
+    if (!providerDoc) return res.status(403).json({ success: false, message: 'Provider profile not found' });
+
+    const request = await ListingRequest.findOne({ _id: req.params.id, provider: providerDoc._id });
+    if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
+    if (request.status === 'approved') {
+      return res.status(400).json({ success: false, message: 'Approved listings cannot be edited from requests' });
+    }
+
+    const data = req.body || {};
+    const files = ((req as any).files as Express.Multer.File[]) || [];
+
+    request.submittedData = {
+      ...(request.submittedData || {}),
+      ...data,
+    };
+    if (files.length > 0) {
+      request.photos = files.map((f: any) => f.path || f.secure_url || f.filename || f.originalname || '').filter(Boolean);
+    }
+    request.status = 'submitted';
+    request.adminFeedback = '';
+    request.submittedAt = new Date();
+    await (request as any).save();
+
+    const listingBase = {
+      ...request.submittedData,
+      photos: request.photos,
+      listingRequest: request._id,
+      verificationStatus: 'pending',
+    } as any;
+
+    if (request.listingType === 'pg') {
+      const { roomTypes, amenities, rules, tags, latitude, longitude } = request.submittedData;
+      const parsedRoomTypes = safeParseArray(roomTypes, 'roomTypes');
+      const minPrice = Array.isArray(parsedRoomTypes) && parsedRoomTypes.length
+        ? Math.min(...parsedRoomTypes.map((r: any) => Number(r.price) || 0))
+        : 0;
+
+      const pgPayload = {
+        ...listingBase,
+        location: { type: 'Point', coordinates: [parseFloat(longitude) || 0, parseFloat(latitude) || 0] },
+        roomTypes: parsedRoomTypes,
+        amenities: typeof amenities === 'string' ? amenities.split(',').map((s: string) => s.trim()) : amenities || [],
+        rules: typeof rules === 'string' ? rules.split(',').map((s: string) => s.trim()) : rules || [],
+        tags: typeof tags === 'string' ? tags.split(',').map((s: string) => s.trim()) : tags || [],
+        minPrice,
+      };
+
+      if (request.createdListingId) {
+        await PGListing.findByIdAndUpdate(request.createdListingId, pgPayload);
+      }
+    }
+
+    if (request.listingType === 'meal') {
+      const { plans, cuisines, dietTypes, mealTimings, latitude, longitude } = request.submittedData;
+      const parsedPlans = safeParseArray(plans, 'plans');
+      const minPrice = Array.isArray(parsedPlans) && parsedPlans.length
+        ? Math.min(...parsedPlans.map((p: any) => Number(p.price) || 0))
+        : 0;
+
+      const mealPayload = {
+        ...listingBase,
+        location: { type: 'Point', coordinates: [parseFloat(longitude) || 0, parseFloat(latitude) || 0] },
+        plans: parsedPlans,
+        cuisines: typeof cuisines === 'string' ? cuisines.split(',').map((s: string) => s.trim()) : cuisines || [],
+        dietTypes: typeof dietTypes === 'string' ? dietTypes.split(',').map((s: string) => s.trim()) : dietTypes || [],
+        mealTimings: typeof mealTimings === 'string' ? mealTimings.split(',').map((s: string) => s.trim()) : mealTimings || [],
+        minPrice,
+      };
+
+      if (request.createdListingId) {
+        await MealService.findByIdAndUpdate(request.createdListingId, mealPayload);
+      }
+    }
+
+    res.json({ success: true, data: request, message: 'Listing request updated and resubmitted' });
+  } catch (err: any) {
+    logControllerError('editListingRequest', err, req);
+    const msg = errorMessage(err);
+    const status = msg.startsWith('Invalid ') ? 400 : 500;
+    res.status(status).json({ success: false, message: msg });
+  }
+};
+
+export const deleteRejectedListingRequest = async (req: AuthRequest, res: Response) => {
+  try {
+    const providerDoc = await Provider.findOne({ user: req.user._id });
+    if (!providerDoc) return res.status(403).json({ success: false, message: 'Provider profile not found' });
+
+    const request = await ListingRequest.findOne({ _id: req.params.id, provider: providerDoc._id });
+    if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
+    if (request.status !== 'rejected') {
+      return res.status(400).json({ success: false, message: 'Only rejected listings can be deleted' });
+    }
+
+    const Model = request.listingType === 'pg' ? PGListing : MealService;
+    if (request.createdListingId) {
+      await (Model as any).findByIdAndDelete(request.createdListingId);
+    }
+
+    await ListingRequest.findByIdAndDelete(request._id);
+
+    res.json({ success: true, data: null, message: 'Rejected listing deleted' });
+  } catch (err: any) {
+    logControllerError('deleteRejectedListingRequest', err, req);
+    res.status(500).json({ success: false, message: errorMessage(err) });
+  }
+};
+
 export const deleteDraft = async (req: AuthRequest, res: Response) => {
   try {
     const request = await ListingRequest.findById(req.params.id);

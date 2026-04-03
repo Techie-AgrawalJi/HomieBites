@@ -24,6 +24,7 @@ import mealRoutes from './routes/meal';
 import bookingRoutes from './routes/booking';
 import adminRoutes from './routes/admin';
 import paymentRoutes from './routes/payment';
+import listingRequestRoutes from './routes/listingRequest';
 
 const app = express();
 
@@ -41,6 +42,7 @@ app.use('/api/meal', mealRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/listing-requests', listingRequestRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ success: true, message: 'HomieBites API is running' });

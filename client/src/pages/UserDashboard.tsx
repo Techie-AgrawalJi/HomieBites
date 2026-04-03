@@ -171,6 +171,16 @@ const UserDashboard = () => {
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[b.status] || ''}`}>{b.status}</span>
                         <span className="text-xs opacity-50 capitalize">{b.listingType} booking</span>
                       </div>
+                      {(b.listingDetails?.name || b.listingDetails?.providerName) && (
+                        <p className="text-sm font-semibold">
+                          {b.listingDetails?.name || b.listingDetails?.providerName}
+                        </p>
+                      )}
+                      {(b.listingDetails?.address || b.listingDetails?.city) && (
+                        <p className="text-xs opacity-50">
+                          {[b.listingDetails?.address, b.listingDetails?.city].filter(Boolean).join(', ')}
+                        </p>
+                      )}
                       <p className="text-sm opacity-60">{b.bookingDetails?.roomType || b.bookingDetails?.planName || 'Booking'}</p>
                       {b.bookingDetails?.message && <p className="text-xs opacity-40 mt-1">"{b.bookingDetails.message}"</p>}
                     </div>
@@ -264,6 +274,10 @@ const UserDashboard = () => {
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[s.status] || ''}`}>{s.status}</span>
                         <span className="text-xs opacity-50">Meal subscription</span>
                       </div>
+                      <p className="text-sm font-semibold">{s.listingDetails?.providerName || s.listingDetails?.name || 'Meal Service'}</p>
+                      {(s.listingDetails?.address || s.listingDetails?.city) && (
+                        <p className="text-xs opacity-50 mt-0.5">{[s.listingDetails?.address, s.listingDetails?.city].filter(Boolean).join(', ')}</p>
+                      )}
                       <p className="text-sm opacity-70">{s.bookingDetails?.planName || 'Plan'} · {s.bookingDetails?.duration || 'Duration not specified'}</p>
                     </div>
                     <div className="text-right">

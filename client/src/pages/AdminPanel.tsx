@@ -29,6 +29,7 @@ const AdminPanel = () => {
   const [listingRequests, setListingRequests] = useState<any[]>([]);
   const [feedbackModal, setFeedbackModal] = useState<{ id: string; action: 'reject' | 'revise' } | null>(null);
   const [feedbackText, setFeedbackText] = useState('');
+  const [detailsModal, setDetailsModal] = useState<any | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -126,6 +127,19 @@ const AdminPanel = () => {
     return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[status] || ''}`}>{status}</span>;
   };
 
+  const parseArrayField = (value: any) => {
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
   return (
     <div className="max-w-6xl mx-auto page-shell px-6 py-10">
       <div className="mb-8">
@@ -220,6 +234,7 @@ const AdminPanel = () => {
                         </span>
                       </div>
                       <div className="flex flex-col gap-2">
+                        <button onClick={() => setDetailsModal(request)} className="px-3 py-1.5 bg-sky-500/20 text-sky-300 rounded-lg text-xs hover:bg-sky-500/30">View Details</button>
                         <button onClick={() => approveListing(request._id)} className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-xs hover:bg-green-600 transition-colors">Approve</button>
                         <button onClick={() => setFeedbackModal({ id: request._id, action: 'revise' })} className="px-3 py-1.5 bg-blue-500/20 text-blue-400 rounded-lg text-xs hover:bg-blue-500/30">Request Changes</button>
                         <button onClick={() => setFeedbackModal({ id: request._id, action: 'reject' })} className="px-3 py-1.5 bg-red-500/20 text-red-400 rounded-lg text-xs hover:bg-red-500/30">Reject</button>
@@ -237,7 +252,7 @@ const AdminPanel = () => {
           </div>
         )}
 
-        {feedbackModal && (
+        {tab === 'providers' && (
           <div>
             <h3 className="font-heading text-xl font-bold mb-4">All Providers ({providers.length})</h3>
             <div className="space-y-3">
@@ -323,6 +338,118 @@ const AdminPanel = () => {
           </div>
         )}
       </div>
+
+      {feedbackModal && (
+        <div className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setFeedbackModal(null)}>
+          <div className="glass rounded-2xl w-full max-w-lg p-5" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-heading text-lg font-bold mb-2">{feedbackModal.action === 'revise' ? 'Request Listing Changes' : 'Reject Listing'}</h3>
+            <p className="text-xs opacity-70 mb-3">Add feedback so the provider knows what to fix.</p>
+            <textarea
+              value={feedbackText}
+              onChange={(e) => setFeedbackText(e.target.value)}
+              rows={4}
+              placeholder="Write feedback..."
+              className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none resize-none"
+            />
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => { setFeedbackModal(null); setFeedbackText(''); }} className="px-3 py-1.5 rounded-lg text-xs bg-gray-500/20 text-gray-300">Cancel</button>
+              <button
+                onClick={() => {
+                  if (!feedbackModal.id) return;
+                  if (!feedbackText.trim()) {
+                    toast.error('Feedback is required');
+                    return;
+                  }
+                  if (feedbackModal.action === 'revise') {
+                    requestRevisions(feedbackModal.id);
+                  } else {
+                    rejectListing(feedbackModal.id);
+                  }
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs text-white ${feedbackModal.action === 'revise' ? 'bg-blue-500 hover:bg-blue-600' : 'bg-red-500 hover:bg-red-600'}`}
+              >
+                {feedbackModal.action === 'revise' ? 'Send Change Request' : 'Reject Listing'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {detailsModal && (
+        <div className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setDetailsModal(null)}>
+          <div className="glass rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h3 className="font-heading text-xl font-bold">{detailsModal.submittedData?.name || detailsModal.submittedData?.providerName || 'Listing'}</h3>
+                <p className="text-xs opacity-60 mt-1 capitalize">{detailsModal.listingType} listing request</p>
+              </div>
+              <button onClick={() => setDetailsModal(null)} className="px-3 py-1.5 bg-amber-500 text-white rounded-lg text-xs">Close</button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="glass rounded-xl p-3">
+                <p className="text-xs opacity-60">Provider</p>
+                <p className="font-medium mt-1">{detailsModal.provider?.businessName}</p>
+              </div>
+              <div className="glass rounded-xl p-3">
+                <p className="text-xs opacity-60">Status</p>
+                <p className="font-medium mt-1 capitalize">{detailsModal.status?.replace('_', ' ')}</p>
+              </div>
+              <div className="glass rounded-xl p-3 md:col-span-2">
+                <p className="text-xs opacity-60">Address</p>
+                <p className="font-medium mt-1">{detailsModal.submittedData?.address || '-'}, {detailsModal.submittedData?.city || '-'}</p>
+              </div>
+              <div className="glass rounded-xl p-3 md:col-span-2">
+                <p className="text-xs opacity-60">Description</p>
+                <p className="font-medium mt-1">{detailsModal.submittedData?.description || 'No description provided'}</p>
+              </div>
+              {detailsModal.listingType === 'pg' ? (
+                <>
+                  <div className="glass rounded-xl p-3">
+                    <p className="text-xs opacity-60">Gender</p>
+                    <p className="font-medium mt-1 capitalize">{detailsModal.submittedData?.gender || '-'}</p>
+                  </div>
+                  <div className="glass rounded-xl p-3">
+                    <p className="text-xs opacity-60">Furnishing</p>
+                    <p className="font-medium mt-1 capitalize">{detailsModal.submittedData?.furnishing || '-'}</p>
+                  </div>
+                  <div className="glass rounded-xl p-3 md:col-span-2">
+                    <p className="text-xs opacity-60 mb-2">Room Types</p>
+                    <div className="space-y-1">
+                      {parseArrayField(detailsModal.submittedData?.roomTypes).map((room: any, idx: number) => (
+                        <p key={`${room.type || 'room'}-${idx}`} className="text-xs">
+                          {room.type || 'Room'}: ₹{Number(room.price || 0).toLocaleString()} | Available {room.availability ?? 0}/{room.total ?? 0}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="glass rounded-xl p-3 md:col-span-2">
+                  <p className="text-xs opacity-60 mb-2">Plans</p>
+                  <div className="space-y-1">
+                    {parseArrayField(detailsModal.submittedData?.plans).map((plan: any, idx: number) => (
+                      <p key={`${plan.name || 'plan'}-${idx}`} className="text-xs">
+                        {plan.name || 'Plan'}: ₹{Number(plan.price || 0).toLocaleString()} | {plan.duration || '-'} | {plan.mealsPerDay || 0} meals/day
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {!!detailsModal.photos?.length && (
+                <div className="glass rounded-xl p-3 md:col-span-2">
+                  <p className="text-xs opacity-60 mb-2">Photos</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {detailsModal.photos.map((photo: string, idx: number) => (
+                      <img key={`${photo}-${idx}`} src={photo} alt="listing" className="w-full h-24 object-cover rounded-lg" />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

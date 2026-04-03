@@ -150,30 +150,6 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* How It Works */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
-        <div className="text-center mb-14">
-          <h2 className="font-heading page-title text-3xl md:text-4xl font-bold mb-4">How HomieBites Works</h2>
-          <p className="opacity-60 max-w-xl mx-auto">Three simple steps to your perfect accommodation and meals</p>
-        </div>
-        <div className="grid md:grid-cols-3 gap-8">
-          {[
-            { step: '01', icon: <Search size={28} />, title: 'Search & Filter', desc: 'Browse verified PGs and meal services by city, budget, gender, and more.' },
-            { step: '02', icon: <Star size={28} />, title: 'Compare & Choose', desc: 'View photos, amenities, reviews, and nearby services to make the best choice.' },
-            { step: '03', icon: <CheckCircle size={28} />, title: 'Book & Pay', desc: 'Send booking requests and pay securely once approved by the provider.' },
-          ].map(({ step, icon, title, desc }) => (
-            <div key={step} className="step-card glass rounded-2xl p-8 text-center relative overflow-hidden group hover:border-amber-500/40 transition-all">
-              <div className="absolute -top-4 -right-4 text-8xl font-heading font-bold opacity-5">{step}</div>
-              <div className="w-14 h-14 bg-amber-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 text-amber-500 group-hover:bg-amber-500 group-hover:text-white transition-all">
-                {icon}
-              </div>
-              <h3 className="font-heading text-xl font-bold mb-2">{title}</h3>
-              <p className="text-sm opacity-60 leading-relaxed">{desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* Featured PG */}
       {featuredPG.length > 0 && (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
@@ -209,6 +185,30 @@ const Landing = () => {
           </div>
         </section>
       )}
+
+      {/* How It Works */}
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
+        <div className="text-center mb-14">
+          <h2 className="font-heading page-title text-3xl md:text-4xl font-bold mb-4">How HomieBites Works</h2>
+          <p className="opacity-60 max-w-xl mx-auto">Three simple steps to your perfect accommodation and meals</p>
+        </div>
+        <div className="grid md:grid-cols-3 gap-8">
+          {[
+            { step: '01', icon: <Search size={28} />, title: 'Search & Filter', desc: 'Browse verified PGs and meal services by city, budget, gender, and more.' },
+            { step: '02', icon: <Star size={28} />, title: 'Compare & Choose', desc: 'View photos, amenities, reviews, and nearby services to make the best choice.' },
+            { step: '03', icon: <CheckCircle size={28} />, title: 'Book & Pay', desc: 'Send booking requests and pay securely once approved by the provider.' },
+          ].map(({ step, icon, title, desc }) => (
+            <div key={step} className="step-card glass rounded-2xl p-8 text-center relative overflow-hidden group hover:border-amber-500/40 transition-all">
+              <div className="absolute -top-4 -right-4 text-8xl font-heading font-bold opacity-5">{step}</div>
+              <div className="w-14 h-14 bg-amber-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 text-amber-500 group-hover:bg-amber-500 group-hover:text-white transition-all">
+                {icon}
+              </div>
+              <h3 className="font-heading text-xl font-bold mb-2">{title}</h3>
+              <p className="text-sm opacity-60 leading-relaxed">{desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* Why HomieBites */}
       <section className="py-20 dot-grid relative">

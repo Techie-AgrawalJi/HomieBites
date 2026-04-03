@@ -176,7 +176,13 @@ export const getFeaturedPG = async (_req: Request, res: Response) => {
 
 export const getProviderPGListings = async (req: AuthRequest, res: Response) => {
   try {
-    const listings = await PGListing.find({ provider: req.params.providerId }).sort('-createdAt');
+    const includePending = req.query.includePending === 'true';
+    const filter: any = { provider: req.params.providerId };
+    if (!includePending) {
+      filter.$or = [{ verificationStatus: 'approved' }, { verified: true }];
+    }
+
+    const listings = await PGListing.find(filter).sort('-createdAt');
     res.json({ success: true, data: listings, message: 'Success' });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
