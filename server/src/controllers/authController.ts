@@ -36,17 +36,33 @@ const sendTokenResponse = (user: any, statusCode: number, res: Response) => {
 };
 
 const isBcryptHash = (value: string) => /^\$2[abxy]\$\d{2}\$/.test(value || '');
-const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
 const findUserByEmail = async (email: string, includePassword = false) => {
-  const normalizedEmail = String(email || '').trim();
+  const normalizedEmail = String(email || '').trim().toLowerCase();
   if (!normalizedEmail) return null;
-  const pattern = new RegExp(`^${escapeRegExp(normalizedEmail)}$`, 'i');
-  const query = User.findOne({ email: pattern });
+
+  // Fast path for records already normalized by current schema behavior.
+  const query = User.findOne({ email: normalizedEmail });
   if (includePassword) {
     query.select('+password');
   }
-  return query;
+  const exactUser = await query;
+  if (exactUser) return exactUser;
+
+  // Legacy compatibility: old production records may include mixed case or stray spaces.
+  const legacyQuery = User.findOne({
+    $expr: {
+      $eq: [
+        { $toLower: { $trim: { input: '$email' } } },
+        normalizedEmail,
+      ],
+    },
+  });
+
+  if (includePassword) {
+    legacyQuery.select('+password');
+  }
+
+  return legacyQuery;
 };
 
 export const signup = async (req: Request, res: Response) => {
