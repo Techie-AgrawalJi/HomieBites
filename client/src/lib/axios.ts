@@ -16,7 +16,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    const status = err.response?.status;
+    const requestUrl = String(err.config?.url || '');
+    const isAuthEndpoint = /\/auth\/(login|signup|provider-signup|forgot-password|reset-password)/.test(requestUrl);
+
+    if (status === 401 && !isAuthEndpoint) {
       if (window.location.pathname !== '/') {
         window.location.href = '/';
       }
