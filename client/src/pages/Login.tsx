@@ -8,10 +8,6 @@ import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
 const Login = () => {
-  // Demo credentials preserved for internal reference:
-  // Admin: admin@homiebites.com / password123
-  // Provider: rahul@homiebites.com / password123
-  // User: user@homiebites.com / password123
   const formRef = useRef<HTMLDivElement>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -50,7 +46,7 @@ const Login = () => {
   };
 
   return (
-    <div className="auth-shell page-shell items-start pt-4 sm:pt-6">
+    <div className="auth-shell page-shell" style={{ alignItems: 'flex-start', paddingTop: '3rem' }}>
       <div className="auth-container w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="font-heading page-title font-bold mb-2">Welcome back</h1>
