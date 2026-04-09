@@ -37,7 +37,7 @@ const Footer = () => {
           <div>
             <h4 className="font-semibold mb-4">Explore</h4>
             <div className="flex flex-col gap-2">
-              {[{ to: '/pg', label: 'PG Listings' }, { to: '/meals', label: 'Meal Services' }, { to: '/signup', label: 'List Your Property' }, { to: '/login', label: 'Sign In' }].map(({ to, label }) => (
+              {[{ to: '/pg', label: 'PG Listings' }, { to: '/meals', label: 'Meal Services' }, { to: '/about-us', label: 'About Us' }, { to: '/signup', label: 'List Your Property' }, { to: '/login', label: 'Sign In' }].map(({ to, label }) => (
                 <Link key={to} to={to} className="text-sm opacity-60 hover:opacity-100 hover:text-amber-500 transition-all">{label}</Link>
               ))}
             </div>
@@ -71,8 +71,8 @@ const Footer = () => {
         <div className="border-t border-white/10 mt-12 pt-6 flex flex-col md:flex-row items-center justify-between gap-4 text-sm opacity-50">
           <p>© 2024 HomieBites. All rights reserved.</p>
           <div className="flex gap-6">
-            <a href="#" className="hover:opacity-100 hover:text-amber-500 transition-all">Privacy Policy</a>
-            <a href="#" className="hover:opacity-100 hover:text-amber-500 transition-all">Terms of Service</a>
+            <Link to="/privacy-policy" className="hover:opacity-100 hover:text-amber-500 transition-all">Privacy Policy</Link>
+            <Link to="/terms-and-conditions" className="hover:opacity-100 hover:text-amber-500 transition-all">Terms & Conditions</Link>
           </div>
         </div>
       </div>
