@@ -50,7 +50,7 @@ const Login = () => {
   };
 
   return (
-    <div className="auth-shell page-shell">
+    <div className="auth-shell page-shell items-start pt-4 sm:pt-6">
       <div className="auth-container w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="font-heading page-title font-bold mb-2">Welcome back</h1>
