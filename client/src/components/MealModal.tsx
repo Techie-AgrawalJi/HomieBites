@@ -2,11 +2,17 @@ import React, { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
-import { X, Star, Phone, ChevronLeft, ChevronRight, BadgeCheck, Building2, Leaf } from 'lucide-react';
+import { X, Star, Phone, ChevronLeft, ChevronRight, BadgeCheck, Building2, Leaf, CalendarDays } from 'lucide-react';
 import { animateModalOpen, animateThumbnailStrip, animateParallaxOnMouseMove, animateMenuCards, animateNearbyCards, attachHorizontalObserver } from '../animations/galleryAnimations';
 import { useAuth } from '../context/AuthContext';
 import api from '../lib/axios';
 import toast from 'react-hot-toast';
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 interface MealModalProps {
   meal: any;
@@ -14,6 +20,12 @@ interface MealModalProps {
   onClose: () => void;
   onViewPG: (pg: any) => void;
 }
+
+const getIsoDateOffset = (offsetDays: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  return date.toISOString().split('T')[0];
+};
 
 const MealModal: React.FC<MealModalProps> = ({ meal, detail, onClose, onViewPG }) => {
   const FALLBACK_MEAL_PHOTO = 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=800';
@@ -25,6 +37,7 @@ const MealModal: React.FC<MealModalProps> = ({ meal, detail, onClose, onViewPG }
   const [activePhoto, setActivePhoto] = useState(0);
   const [isPhotoTransitioning, setIsPhotoTransitioning] = useState(false);
   const [activeTab, setActiveTab] = useState<'menu' | 'plans' | 'kitchen'>('menu');
+  const [dailyServiceDate, setDailyServiceDate] = useState(() => getIsoDateOffset(1));
   const [nearbyEdge, setNearbyEdge] = useState({ left: false, right: false });
   const { user } = useAuth();
   const isBookingRestrictedUser = ['provider', 'superadmin', 'admin'].includes(user?.role || '');
@@ -34,6 +47,8 @@ const MealModal: React.FC<MealModalProps> = ({ meal, detail, onClose, onViewPG }
     .map((src) => src.trim())
     .filter((src) => src.length > 0);
   const galleryPhotos = photos.length ? photos : [FALLBACK_MEAL_PHOTO];
+  const tomorrowIsoDate = getIsoDateOffset(1);
+  const thirdDayAfterTodayIsoDate = getIsoDateOffset(3);
 
   const preloadPhoto = (src: string) =>
     new Promise<boolean>((resolve) => {
@@ -188,18 +203,77 @@ const MealModal: React.FC<MealModalProps> = ({ meal, detail, onClose, onViewPG }
   const handleSubscribe = async (plan: any) => {
     if (!user) { toast.error('Please login to subscribe'); return; }
     if (isBookingRestrictedUser) { toast.error('Provider and admin accounts cannot create booking requests'); return; }
+
+    const tier = String(plan?.tier || '').toLowerCase() ||
+      (String(plan?.duration || '').toLowerCase().includes('day') && !String(plan?.duration || '').toLowerCase().includes('week') && !String(plan?.duration || '').toLowerCase().includes('month')
+        ? 'daily'
+        : String(plan?.duration || '').toLowerCase().includes('week')
+          ? 'weekly'
+          : 'monthly');
+
+    if (tier === 'daily' && !dailyServiceDate) {
+      toast.error('Please select a date');
+      return;
+    }
+
+    if (tier === 'daily' && (dailyServiceDate < tomorrowIsoDate || dailyServiceDate > thirdDayAfterTodayIsoDate)) {
+      toast.error('Daily meal service can only be requested for tomorrow and the following 2 days');
+      return;
+    }
+
     try {
-      await api.post('/bookings', {
-        listing: meal._id,
-        listingType: 'meal',
-        provider: meal.provider?._id || meal.provider,
-        bookingDetails: { planName: plan.name, duration: plan.duration },
-        paymentAmount: plan.price,
+      const orderRes = await api.post('/payments/create-meal-order', {
+        listingId: meal._id,
+        providerId: meal.provider?._id || meal.provider,
+        planName: plan.name,
+        serviceTier: tier,
+        duration: plan.duration,
+        mealsPerDay: plan.mealsPerDay,
+        amount: plan.price,
+        serviceDate: tier === 'daily' ? dailyServiceDate : null,
+        message: '',
       });
-      toast.success('Subscription request sent!');
-      onClose();
+
+      const { orderId, amount, currency, bookingToken, mockPayment } = orderRes.data.data;
+
+      if (mockPayment) {
+        await api.post('/payments/mock-confirm', { bookingToken });
+        toast.success('Booking confirmed (mock payment mode).');
+        onClose();
+        return;
+      }
+
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+        amount,
+        currency,
+        name: 'HomieBites',
+        description: `${plan.name} (${tier})`,
+        order_id: orderId,
+        handler: async (response: any) => {
+          try {
+            await api.post('/payments/verify', {
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+              bookingToken,
+            });
+            toast.success('Payment successful. Booking confirmed and provider notified.');
+            onClose();
+          } catch {
+            toast.error('Payment verification failed. Booking remains unconfirmed.');
+          }
+        },
+        theme: { color: '#f59e0b' },
+      };
+
+      if (window.Razorpay) {
+        new window.Razorpay(options).open();
+      } else {
+        toast.error('Payment gateway is not loaded. Please try again.');
+      }
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed');
+      toast.error(err.response?.data?.message || 'Failed to start payment');
     }
   };
 
@@ -279,13 +353,43 @@ const MealModal: React.FC<MealModalProps> = ({ meal, detail, onClose, onViewPG }
                   {i === 1 && <span className="text-xs bg-amber-500 text-white px-2 py-0.5 rounded-full mb-2 inline-block">Popular</span>}
                   <p className="font-semibold">{plan.name}</p>
                   <p className="text-2xl font-bold text-amber-500 my-1">₹{plan.price?.toLocaleString()}</p>
-                  <p className="text-xs opacity-60">{plan.duration} · {plan.mealsPerDay} meals/day</p>
+                  <p className="text-xs opacity-60 capitalize">{plan.tier || 'monthly'} · {plan.duration} · {plan.mealsPerDay} meals/day</p>
+                  {String(plan?.tier || '').toLowerCase() === 'daily' && (
+                    <div className="relative mt-2">
+                      <input
+                        type="date"
+                        min={tomorrowIsoDate}
+                        max={thirdDayAfterTodayIsoDate}
+                        value={dailyServiceDate}
+                        onChange={(e) => setDailyServiceDate(e.target.value)}
+                        onKeyDown={(e) => e.preventDefault()}
+                        onPaste={(e) => e.preventDefault()}
+                        onDrop={(e) => e.preventDefault()}
+                        className="daily-date-picker-input w-full px-2 py-1.5 pr-10 glass rounded-lg text-xs outline-none"
+                        aria-label="Select daily meal date"
+                      />
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          const input = e.currentTarget.previousElementSibling as HTMLInputElement | null;
+                          if (!input) return;
+                          input.focus();
+                          input.showPicker?.();
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-md bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition-colors"
+                        aria-label="Open date picker"
+                        title="Open date picker"
+                      >
+                        <CalendarDays size={14} />
+                      </button>
+                    </div>
+                  )}
                   <button
                     onClick={() => handleSubscribe(plan)}
                     disabled={isBookingRestrictedUser}
                     className="w-full mt-3 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-amber-500"
                   >
-                    Subscribe
+                    {String(plan?.tier || '').toLowerCase() === 'daily' ? 'Pay & Confirm Day' : 'Pay & Subscribe'}
                   </button>
                 </div>
               ))}

@@ -17,7 +17,18 @@ const MealCard: React.FC<MealCardProps> = ({ meal, onViewDetails }) => {
     return cleanup;
   }, []);
 
-  const minPrice = meal.minPrice || meal.plans?.[0]?.price || 0;
+  const monthlyPlan = Array.isArray(meal.plans)
+    ? meal.plans.find((plan: any) => {
+        const tier = String(plan?.tier || '').toLowerCase();
+        const name = String(plan?.name || '').toLowerCase();
+        const duration = String(plan?.duration || '').toLowerCase();
+        return tier === 'monthly' || name.includes('month') || duration.includes('month');
+      })
+    : null;
+  const monthlyPrice = Number(monthlyPlan?.price || 0);
+  const displayMonthlyPrice = monthlyPrice > 0
+    ? monthlyPrice
+    : Number(meal.minPrice || meal.plans?.[0]?.price || 0);
   const phoneDigits = String(meal.contactPhone || '').replace(/\D/g, '');
   const waPhone = phoneDigits.length === 10 ? `91${phoneDigits}` : phoneDigits;
   const waText = encodeURIComponent(`Hi, I am interested in your meal service ${meal.providerName} in ${meal.city}.`);
@@ -94,7 +105,7 @@ const MealCard: React.FC<MealCardProps> = ({ meal, onViewDetails }) => {
 
         <div className="mt-auto" onClick={(e) => e.stopPropagation()}>
           <div>
-            <span className="text-lg font-bold text-amber-500">₹{minPrice.toLocaleString()}</span>
+            <span className="text-lg font-bold text-amber-500">₹{displayMonthlyPrice.toLocaleString()}</span>
             <span className="text-xs opacity-60">/month</span>
           </div>
           <div className="mt-2 grid grid-cols-2 gap-2">

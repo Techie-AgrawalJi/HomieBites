@@ -11,6 +11,7 @@ import Landing from './pages/Landing';
 import PGListings from './pages/PGListings';
 import MealServices from './pages/MealServices';
 import CityExplore from './pages/CityExplore';
+import DiscoverListings from './pages/DiscoverListings';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import UserDashboard from './pages/UserDashboard';
@@ -82,6 +83,7 @@ const AppContent = () => {
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/city/:city" element={<CityExplore />} />
+            <Route path="/discover" element={<DiscoverListings />} />
             <Route path="/pg" element={<PGListings />} />
             <Route path="/meals" element={<MealServices />} />
             <Route path="/login" element={<Login />} />
@@ -98,7 +100,7 @@ const AppContent = () => {
       <Footer />
       <BackToTop />
       <Toaster
-        position="top-right"
+        position="bottom-right"
         toastOptions={{
           style: { background: 'var(--card-bg)', color: 'var(--fg)', border: '1px solid var(--border)', backdropFilter: 'blur(12px)' },
           duration: 3000,

@@ -163,10 +163,9 @@ const MealServices = () => {
           </select>
           <select value={filters.planType} onChange={(e) => setFilters({ ...filters, planType: e.target.value })} className="px-3 py-2 glass rounded-xl text-sm outline-none">
             <option value="">Plan Type</option>
-            <option value="Basic">Basic</option>
-            <option value="Standard">Standard</option>
-            <option value="Premium">Premium</option>
-            <option value="Monthly">Monthly</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
           </select>
           <input type="number" value={filters.minPrice} onChange={(e) => setFilters({ ...filters, minPrice: e.target.value })} placeholder="Min price/month" className="px-3 py-2 glass rounded-xl text-sm outline-none" />
           <input type="number" value={filters.maxPrice} onChange={(e) => setFilters({ ...filters, maxPrice: e.target.value })} placeholder="Max price/month" className="px-3 py-2 glass rounded-xl text-sm outline-none" />

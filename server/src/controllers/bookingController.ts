@@ -12,6 +12,17 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
     }
 
     const { listing, listingType, provider, bookingDetails, paymentAmount } = req.body;
+
+    if (
+      listingType === 'meal' &&
+      bookingDetails?.serviceTier === 'daily'
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'Daily meal bookings are confirmed only after payment. Please pay first to confirm this booking.',
+      });
+    }
+
     const booking = await Booking.create({
       user: req.user._id,
       listing,

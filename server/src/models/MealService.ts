@@ -11,6 +11,7 @@ export interface IMealService extends Document {
   mealTimings: string[];
   plans: {
     name: string;
+    tier: 'daily' | 'weekly' | 'monthly';
     price: number;
     duration: string;
     mealsPerDay: number;
@@ -49,6 +50,7 @@ const MealServiceSchema = new Schema<IMealService>({
   mealTimings: [String],
   plans: [{
     name: String,
+    tier: { type: String, enum: ['daily', 'weekly', 'monthly'], default: 'monthly' },
     price: Number,
     duration: String,
     mealsPerDay: Number,

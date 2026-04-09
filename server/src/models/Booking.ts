@@ -11,6 +11,8 @@ export interface IBooking extends Document {
     planName?: string;
     startDate?: Date;
     duration?: string;
+    serviceTier?: 'daily' | 'weekly' | 'monthly';
+    serviceDate?: Date;
     message?: string;
   };
   paymentAmount: number;
@@ -32,6 +34,8 @@ const BookingSchema = new Schema<IBooking>({
     planName: String,
     startDate: Date,
     duration: String,
+    serviceTier: { type: String, enum: ['daily', 'weekly', 'monthly'] },
+    serviceDate: Date,
     message: String,
   },
   paymentAmount: { type: Number, default: 0 },

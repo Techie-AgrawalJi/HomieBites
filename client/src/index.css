@@ -293,3 +293,14 @@ h1, h2, h3, h4 {
   z-index: 9999;
   pointer-events: none;
 }
+
+/* Daily meal date picker uses a custom icon button; hide native browser icon. */
+.daily-date-picker-input::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.daily-date-picker-input::-webkit-clear-button,
+.daily-date-picker-input::-webkit-inner-spin-button {
+  display: none;
+}

@@ -186,8 +186,9 @@ export const submitListingRequest = async (req: AuthRequest, res: Response) => {
         createdListing = await PGListing.create(pgPayload);
       }
     } else if (effectiveListingType === 'meal') {
-      const { plans, cuisines, dietTypes, mealTimings, latitude, longitude } = request.submittedData;
+      const { plans, cuisines, dietTypes, mealTimings, sampleMenu, latitude, longitude } = request.submittedData;
       const parsedPlans = safeParseArray(plans, 'plans');
+      const parsedSampleMenu = safeParseArray(sampleMenu, 'sampleMenu');
       const minPrice = Array.isArray(parsedPlans) ? Math.min(...parsedPlans.map((p: any) => Number(p.price) || 0)) : 0;
 
       const mealPayload = {
@@ -197,6 +198,7 @@ export const submitListingRequest = async (req: AuthRequest, res: Response) => {
         cuisines: typeof cuisines === 'string' ? cuisines.split(',').map((s: string) => s.trim()) : cuisines || [],
         dietTypes: typeof dietTypes === 'string' ? dietTypes.split(',').map((s: string) => s.trim()) : dietTypes || [],
         mealTimings: typeof mealTimings === 'string' ? mealTimings.split(',').map((s: string) => s.trim()) : mealTimings || [],
+        sampleMenu: parsedSampleMenu,
         minPrice,
       };
 
@@ -362,12 +364,13 @@ export const resubmitListing = async (req: AuthRequest, res: Response) => {
       updateData.rules = typeof rules === 'string' ? rules.split(',').map((s: string) => s.trim()) : rules || [];
       updateData.tags = typeof tags === 'string' ? tags.split(',').map((s: string) => s.trim()) : tags || [];
     } else if (request.listingType === 'meal') {
-      const { plans, cuisines, dietTypes, mealTimings, latitude, longitude } = data;
+      const { plans, cuisines, dietTypes, mealTimings, sampleMenu, latitude, longitude } = data;
       updateData.location = { type: 'Point', coordinates: [parseFloat(longitude) || 0, parseFloat(latitude) || 0] };
       updateData.plans = safeParseArray(plans, 'plans');
       updateData.cuisines = typeof cuisines === 'string' ? cuisines.split(',').map((s: string) => s.trim()) : cuisines || [];
       updateData.dietTypes = typeof dietTypes === 'string' ? dietTypes.split(',').map((s: string) => s.trim()) : dietTypes || [];
       updateData.mealTimings = typeof mealTimings === 'string' ? mealTimings.split(',').map((s: string) => s.trim()) : mealTimings || [];
+      updateData.sampleMenu = safeParseArray(sampleMenu, 'sampleMenu');
     }
 
     await (Model as any).findByIdAndUpdate(request.createdListingId, updateData);
@@ -437,8 +440,9 @@ export const editListingRequest = async (req: AuthRequest, res: Response) => {
     }
 
     if (request.listingType === 'meal') {
-      const { plans, cuisines, dietTypes, mealTimings, latitude, longitude } = request.submittedData;
+      const { plans, cuisines, dietTypes, mealTimings, sampleMenu, latitude, longitude } = request.submittedData;
       const parsedPlans = safeParseArray(plans, 'plans');
+      const parsedSampleMenu = safeParseArray(sampleMenu, 'sampleMenu');
       const minPrice = Array.isArray(parsedPlans) && parsedPlans.length
         ? Math.min(...parsedPlans.map((p: any) => Number(p.price) || 0))
         : 0;
@@ -450,6 +454,7 @@ export const editListingRequest = async (req: AuthRequest, res: Response) => {
         cuisines: typeof cuisines === 'string' ? cuisines.split(',').map((s: string) => s.trim()) : cuisines || [],
         dietTypes: typeof dietTypes === 'string' ? dietTypes.split(',').map((s: string) => s.trim()) : dietTypes || [],
         mealTimings: typeof mealTimings === 'string' ? mealTimings.split(',').map((s: string) => s.trim()) : mealTimings || [],
+        sampleMenu: parsedSampleMenu,
         minPrice,
       };
 

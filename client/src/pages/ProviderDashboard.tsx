@@ -29,6 +29,18 @@ const TABS = [
   { id: "profile", label: "Profile", icon: <Users size={16} /> },
 ];
 
+const WEEK_DAYS = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+
+const getDefaultWeeklyMenu = () => [{ day: "Monday", itemsText: "" }];
+
 const ProviderDashboard = () => {
   const statsRef = useRef<HTMLDivElement>(null);
   const tabContentRef = useRef<HTMLDivElement>(null);
@@ -46,11 +58,16 @@ const ProviderDashboard = () => {
   const [listingRequests, setListingRequests] = useState<any[]>([]);
   const [selectedListing, setSelectedListing] = useState<any | null>(null);
   const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
+  const [pgPincodeLoading, setPgPincodeLoading] = useState(false);
+  const [mealPincodeLoading, setMealPincodeLoading] = useState(false);
   const [pgForm, setPgForm] = useState({
     name: "",
     description: "",
-    address: "",
+    pincode: "",
+    street: "",
+    landmark: "",
     city: "",
+    state: "",
     gender: "male",
     furnishing: "furnished",
     contactName: "",
@@ -64,8 +81,11 @@ const ProviderDashboard = () => {
   const [mealForm, setMealForm] = useState({
     providerName: "",
     description: "",
-    address: "",
+    pincode: "",
+    street: "",
+    landmark: "",
     city: "",
+    state: "",
     cuisines: "",
     dietTypes: "",
     mealTimings: "",
@@ -80,15 +100,25 @@ const ProviderDashboard = () => {
     { type: "Single", price: "10000", availability: "2", total: "3" },
   ]);
   const [mealPlans, setMealPlans] = useState([
-    { name: "Monthly", price: "", duration: "1 Month", mealsPerDay: "2" },
+    {
+      name: "Monthly Plan",
+      tier: "monthly",
+      price: "",
+      duration: "30 Days",
+      mealsPerDay: "2",
+    },
   ]);
+  const [mealWeeklyMenu, setMealWeeklyMenu] = useState(getDefaultWeeklyMenu());
 
   const resetPGForm = () => {
     setPgForm({
       name: "",
       description: "",
-      address: "",
+      pincode: "",
+      street: "",
+      landmark: "",
       city: "",
+      state: "",
       gender: "male",
       furnishing: "furnished",
       contactName: "",
@@ -109,8 +139,11 @@ const ProviderDashboard = () => {
     setMealForm({
       providerName: "",
       description: "",
-      address: "",
+      pincode: "",
+      street: "",
+      landmark: "",
       city: "",
+      state: "",
       cuisines: "",
       dietTypes: "",
       mealTimings: "",
@@ -121,8 +154,15 @@ const ProviderDashboard = () => {
     });
     setMealPhotos([]);
     setMealPlans([
-      { name: "Monthly", price: "", duration: "1 Month", mealsPerDay: "2" },
+      {
+        name: "Monthly Plan",
+        tier: "monthly",
+        price: "",
+        duration: "30 Days",
+        mealsPerDay: "2",
+      },
     ]);
+    setMealWeeklyMenu(getDefaultWeeklyMenu());
   };
 
   const fetchListingRequests = async () => {
@@ -248,15 +288,113 @@ const ProviderDashboard = () => {
     }
   };
 
+  const fetchCityStateFromPincode = async (pincode: string) => {
+    const response = await fetch(
+      `https://api.postalpincode.in/pincode/${pincode}`,
+      {
+        headers: { Accept: "application/json" },
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error("Could not fetch pincode details");
+    }
+
+    const result = await response.json();
+    const first = Array.isArray(result) ? result[0] : null;
+    const postOffice =
+      first?.PostOffice && Array.isArray(first.PostOffice)
+        ? first.PostOffice[0]
+        : null;
+
+    if (!postOffice) {
+      throw new Error("Invalid pincode or no post office found");
+    }
+
+    return {
+      city: postOffice.District || postOffice.Block || postOffice.Name || "",
+      state: postOffice.State || "",
+    };
+  };
+
+  const fetchCityStateFromCoordinates = async (lat: string, lng: string) => {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`,
+      {
+        headers: { Accept: "application/json" },
+      },
+    );
+
+    if (!response.ok) return { city: "", state: "" };
+
+    const result = await response.json();
+    const address = result?.address || {};
+    return {
+      city:
+        address.city ||
+        address.town ||
+        address.village ||
+        address.municipality ||
+        address.county ||
+        "",
+      state: address.state || "",
+    };
+  };
+
+  const handlePincodeLookup = async (type: "pg" | "meal") => {
+    const form = type === "pg" ? pgForm : mealForm;
+    const setLoading = type === "pg" ? setPgPincodeLoading : setMealPincodeLoading;
+    const setter = type === "pg" ? setPgForm : setMealForm;
+    const pincode = String(form.pincode || "").replace(/\D/g, "").slice(0, 6);
+
+    if (pincode.length !== 6) {
+      toast.error("Enter a valid 6-digit pincode");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { city, state } = await fetchCityStateFromPincode(pincode);
+      setter((prev: any) => ({ ...prev, pincode, city, state }));
+      toast.success("City and state auto-filled from pincode");
+    } catch (error: any) {
+      toast.error(error?.message || "Could not fetch city/state from pincode");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getLocation = (setter: any) => {
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
+        const latitude = pos.coords.latitude.toString();
+        const longitude = pos.coords.longitude.toString();
+
         setter((f: any) => ({
           ...f,
-          latitude: pos.coords.latitude.toString(),
-          longitude: pos.coords.longitude.toString(),
+          latitude,
+          longitude,
         }));
-        toast.success("Location auto-filled!");
+
+        try {
+          const { city, state } = await fetchCityStateFromCoordinates(
+            latitude,
+            longitude,
+          );
+          if (city || state) {
+            setter((f: any) => ({
+              ...f,
+              city: city || f.city,
+              state: state || f.state,
+              latitude,
+              longitude,
+            }));
+          }
+        } catch {
+          // If reverse geocoding fails, keep coordinates and continue.
+        }
+
+        toast.success("Current location captured");
       },
       () => toast.error("Location access denied"),
     );
@@ -282,7 +420,13 @@ const ProviderDashboard = () => {
   const addMealPlan = () => {
     setMealPlans((prev) => [
       ...prev,
-      { name: "", price: "", duration: "", mealsPerDay: "2" },
+      {
+        name: "",
+        tier: "weekly",
+        price: "",
+        duration: "7 Days",
+        mealsPerDay: "2",
+      },
     ]);
   };
 
@@ -296,6 +440,24 @@ const ProviderDashboard = () => {
     setMealPlans((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const addWeeklyMenuRow = () => {
+    setMealWeeklyMenu((prev) => [...prev, { day: "Monday", itemsText: "" }]);
+  };
+
+  const updateWeeklyMenuRow = (
+    index: number,
+    key: "day" | "itemsText",
+    value: string,
+  ) => {
+    setMealWeeklyMenu((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, [key]: value } : row)),
+    );
+  };
+
+  const removeWeeklyMenuRow = (index: number) => {
+    setMealWeeklyMenu((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const editPendingRequest = (request: any) => {
     if (request.status === "rejected") {
       toast.error("Rejected listings cannot be edited. Delete and create a new listing if needed.");
@@ -305,12 +467,20 @@ const ProviderDashboard = () => {
     setListingType(request.listingType);
 
     const d = request.submittedData || {};
+    const legacyAddressParts = String(d.address || "")
+      .split(",")
+      .map((part: string) => part.trim())
+      .filter(Boolean);
+
     if (request.listingType === "pg") {
       setPgForm({
         name: d.name || "",
         description: d.description || "",
-        address: d.address || "",
+        pincode: d.pincode || "",
+        street: d.street || d.addressName || legacyAddressParts[0] || "",
+        landmark: d.landmark || legacyAddressParts[1] || "",
         city: d.city || "",
+        state: d.state || "",
         gender: d.gender || "male",
         furnishing: d.furnishing || "furnished",
         contactName: d.contactName || "",
@@ -353,8 +523,11 @@ const ProviderDashboard = () => {
       setMealForm({
         providerName: d.providerName || "",
         description: d.description || "",
-        address: d.address || "",
+        pincode: d.pincode || "",
+        street: d.street || d.addressName || legacyAddressParts[0] || "",
+        landmark: d.landmark || legacyAddressParts[1] || "",
         city: d.city || "",
+        state: d.state || "",
         cuisines: Array.isArray(d.cuisines)
           ? d.cuisines.join(", ")
           : d.cuisines || "",
@@ -382,22 +555,46 @@ const ProviderDashboard = () => {
         return [];
       })();
 
+      const parsedWeeklyMenu = (() => {
+        if (Array.isArray(d.sampleMenu)) return d.sampleMenu;
+        if (typeof d.sampleMenu === "string") {
+          try {
+            return JSON.parse(d.sampleMenu);
+          } catch {
+            return [];
+          }
+        }
+        return [];
+      })();
+
       setMealPlans(
         parsedPlans.length
           ? parsedPlans.map((plan: any) => ({
               name: String(plan.name || ""),
+              tier: String(plan.tier || "monthly"),
               price: String(plan.price || ""),
               duration: String(plan.duration || ""),
               mealsPerDay: String(plan.mealsPerDay || "2"),
             }))
           : [
               {
-                name: "Monthly",
+                name: "Monthly Plan",
+                tier: "monthly",
                 price: "",
-                duration: "1 Month",
+                duration: "30 Days",
                 mealsPerDay: "2",
               },
             ],
+      );
+      setMealWeeklyMenu(
+        parsedWeeklyMenu.length
+          ? parsedWeeklyMenu.map((entry: any) => ({
+              day: String(entry.day || "Monday"),
+              itemsText: Array.isArray(entry.items)
+                ? entry.items.join(", ")
+                : String(entry.items || ""),
+            }))
+          : getDefaultWeeklyMenu(),
       );
       setMealPhotos([]);
     }
@@ -423,7 +620,8 @@ const ProviderDashboard = () => {
       if (
         !pgForm.name ||
         !pgForm.description ||
-        !pgForm.address ||
+        !pgForm.street ||
+        !pgForm.landmark ||
         !pgForm.city ||
         !pgForm.contactName ||
         !pgForm.contactPhone
@@ -452,8 +650,17 @@ const ProviderDashboard = () => {
         return;
       }
 
+      const pgAddress = [pgForm.street, pgForm.landmark]
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .join(", ");
+      const pgPayload = {
+        ...pgForm,
+        address: pgAddress,
+      };
+
       const formData = new FormData();
-      Object.entries(pgForm).forEach(([key, val]) => formData.append(key, val));
+      Object.entries(pgPayload).forEach(([key, val]) => formData.append(key, val));
       formData.append("listingType", "pg");
       formData.append("roomTypes", JSON.stringify(validRoomTypes));
       pgPhotos.forEach((file) => formData.append("photos", file));
@@ -500,7 +707,8 @@ const ProviderDashboard = () => {
       if (
         !mealForm.providerName ||
         !mealForm.description ||
-        !mealForm.address ||
+        !mealForm.street ||
+        !mealForm.landmark ||
         !mealForm.city ||
         !mealForm.contactPhone
       ) {
@@ -511,6 +719,7 @@ const ProviderDashboard = () => {
       const validPlans = mealPlans
         .map((plan) => ({
           name: plan.name.trim(),
+          tier: String(plan.tier || "").toLowerCase(),
           price: Number(plan.price),
           duration: plan.duration.trim(),
           mealsPerDay: Number(plan.mealsPerDay),
@@ -518,6 +727,7 @@ const ProviderDashboard = () => {
         .filter(
           (plan) =>
             plan.name &&
+            ["daily", "weekly", "monthly"].includes(plan.tier) &&
             plan.duration &&
             Number.isFinite(plan.price) &&
             plan.price > 0 &&
@@ -530,12 +740,37 @@ const ProviderDashboard = () => {
         return;
       }
 
+      const validWeeklyMenu = mealWeeklyMenu
+        .map((entry) => ({
+          day: entry.day,
+          items: entry.itemsText
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean),
+        }))
+        .filter((entry) => entry.day && entry.items.length > 0);
+
+      if (!validWeeklyMenu.length) {
+        toast.error("Please add at least one weekly menu entry");
+        return;
+      }
+
+      const mealAddress = [mealForm.street, mealForm.landmark]
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .join(", ");
+      const mealPayload = {
+        ...mealForm,
+        address: mealAddress,
+      };
+
       const formData = new FormData();
-      Object.entries(mealForm).forEach(([key, val]) =>
+      Object.entries(mealPayload).forEach(([key, val]) =>
         formData.append(key, val),
       );
       formData.append("listingType", "meal");
       formData.append("plans", JSON.stringify(validPlans));
+      formData.append("sampleMenu", JSON.stringify(validWeeklyMenu));
       mealPhotos.forEach((file) => formData.append("photos", file));
 
       if (editingRequestId) {
@@ -595,9 +830,61 @@ const ProviderDashboard = () => {
     return "bg-gray-500/20 text-gray-400";
   };
 
+  const getMonthlyMealPrice = (meal: any) => {
+    const monthlyPlan = Array.isArray(meal?.plans)
+      ? meal.plans.find((plan: any) => {
+          const tier = String(plan?.tier || "").toLowerCase();
+          const name = String(plan?.name || "").toLowerCase();
+          const duration = String(plan?.duration || "").toLowerCase();
+          return (
+            tier === "monthly" ||
+            name.includes("month") ||
+            duration.includes("month")
+          );
+        })
+      : null;
+
+    const monthlyPrice = Number(monthlyPlan?.price || 0);
+    if (monthlyPrice > 0) return monthlyPrice;
+    return Number(meal?.minPrice || meal?.plans?.[0]?.price || 0);
+  };
+
   const renderListingDetails = (listing: any) => {
     if (!listing) return null;
     const isPG = !!listing.name;
+    const listingPhotos = Array.isArray(listing.photos)
+      ? listing.photos.filter(Boolean)
+      : [];
+    const coords = Array.isArray(listing.location?.coordinates)
+      ? listing.location.coordinates
+      : [];
+    const lng = Number(coords?.[0]);
+    const lat = Number(coords?.[1]);
+    const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+
+    const renderPills = (items: any[], emptyText: string) => {
+      const normalized = Array.isArray(items)
+        ? items
+            .map((item) => String(item || "").trim())
+            .filter(Boolean)
+        : [];
+      if (!normalized.length) {
+        return <p className="text-xs opacity-50">{emptyText}</p>;
+      }
+      return (
+        <div className="flex flex-wrap gap-1.5">
+          {normalized.map((item, idx) => (
+            <span
+              key={`${item}-${idx}`}
+              className="px-2 py-0.5 rounded-full text-xs bg-amber-500/15 text-amber-300"
+            >
+              {item}
+            </span>
+          ))}
+        </div>
+      );
+    };
+
     return (
       <div
         className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
@@ -638,10 +925,55 @@ const ProviderDashboard = () => {
                 ₹{listing.minPrice?.toLocaleString() || 0}
               </p>
             </div>
+            <div className="glass rounded-xl p-3">
+              <p className="text-xs opacity-60">Rating</p>
+              <p className="font-medium mt-1">
+                {Number(listing.averageRating || 0).toFixed(1)} ({listing.reviewCount || 0} reviews)
+              </p>
+            </div>
+            <div className="glass rounded-xl p-3">
+              <p className="text-xs opacity-60">Created</p>
+              <p className="font-medium mt-1">
+                {listing.createdAt
+                  ? new Date(listing.createdAt).toLocaleString()
+                  : "Not available"}
+              </p>
+            </div>
             <div className="glass rounded-xl p-3 md:col-span-2">
               <p className="text-xs opacity-60">Description</p>
               <p className="font-medium mt-1">
                 {listing.description || "No description"}
+              </p>
+            </div>
+            <div className="glass rounded-xl p-3 md:col-span-2">
+              <p className="text-xs opacity-60 mb-2">Photos</p>
+              {listingPhotos.length ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {listingPhotos.map((photo: string, idx: number) => (
+                    <img
+                      key={`${photo}-${idx}`}
+                      src={photo}
+                      alt={`Listing photo ${idx + 1}`}
+                      className="w-full h-24 object-cover rounded-lg"
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs opacity-50">No photos uploaded</p>
+              )}
+            </div>
+            <div className="glass rounded-xl p-3 md:col-span-2">
+              <p className="text-xs opacity-60">Contact</p>
+              <p className="font-medium mt-1">
+                {isPG
+                  ? `${listing.contactName || "-"} | ${listing.contactPhone || "-"}`
+                  : listing.contactPhone || "-"}
+              </p>
+            </div>
+            <div className="glass rounded-xl p-3 md:col-span-2">
+              <p className="text-xs opacity-60">Location Coordinates</p>
+              <p className="font-medium mt-1">
+                {hasCoords ? `${lat.toFixed(6)}, ${lng.toFixed(6)}` : "Not provided"}
               </p>
             </div>
             {isPG ? (
@@ -669,19 +1001,83 @@ const ProviderDashboard = () => {
                     ))}
                   </div>
                 </div>
+                <div className="glass rounded-xl p-3 md:col-span-2">
+                  <p className="text-xs opacity-60 mb-2">Amenities</p>
+                  {renderPills(listing.amenities, "No amenities added")}
+                </div>
+                <div className="glass rounded-xl p-3 md:col-span-2">
+                  <p className="text-xs opacity-60 mb-2">Rules</p>
+                  {renderPills(listing.rules, "No rules added")}
+                </div>
+                <div className="glass rounded-xl p-3 md:col-span-2">
+                  <p className="text-xs opacity-60 mb-2">Tags</p>
+                  {renderPills(listing.tags, "No tags added")}
+                </div>
+                <div className="glass rounded-xl p-3 md:col-span-2">
+                  <p className="text-xs opacity-60">Landmark</p>
+                  <p className="font-medium mt-1">
+                    {listing.landmark || "Not specified"}
+                    {listing.distanceFromLandmark
+                      ? ` (${listing.distanceFromLandmark})`
+                      : ""}
+                  </p>
+                </div>
               </>
             ) : (
-              <div className="glass rounded-xl p-3 md:col-span-2">
-                <p className="text-xs opacity-60 mb-2">Plans</p>
-                <div className="space-y-2">
-                  {(listing.plans || []).map((plan: any, idx: number) => (
-                    <p key={`${plan.name}-${idx}`} className="text-xs">
-                      {plan.name}: ₹{Number(plan.price || 0).toLocaleString()} |{" "}
-                      {plan.duration} | {plan.mealsPerDay} meals/day
-                    </p>
-                  ))}
+              <>
+                <div className="glass rounded-xl p-3 md:col-span-2">
+                  <p className="text-xs opacity-60 mb-2">Plans</p>
+                  <div className="space-y-2">
+                    {(listing.plans || []).map((plan: any, idx: number) => (
+                      <p key={`${plan.name}-${idx}`} className="text-xs">
+                        {plan.name} ({plan.tier || "monthly"}): ₹
+                        {Number(plan.price || 0).toLocaleString()} | {plan.duration} |
+                        {" "}
+                        {plan.mealsPerDay} meals/day
+                      </p>
+                    ))}
+                  </div>
                 </div>
-              </div>
+                <div className="glass rounded-xl p-3">
+                  <p className="text-xs opacity-60">Delivery Radius</p>
+                  <p className="font-medium mt-1">{listing.deliveryRadius || 0} km</p>
+                </div>
+                <div className="glass rounded-xl p-3">
+                  <p className="text-xs opacity-60">Cuisine & Diet</p>
+                  <p className="font-medium mt-1">
+                    {Array.isArray(listing.cuisines) && listing.cuisines.length
+                      ? listing.cuisines.join(", ")
+                      : "No cuisines"}
+                    {" | "}
+                    {Array.isArray(listing.dietTypes) && listing.dietTypes.length
+                      ? listing.dietTypes.join(", ")
+                      : "No diet types"}
+                  </p>
+                </div>
+                <div className="glass rounded-xl p-3 md:col-span-2">
+                  <p className="text-xs opacity-60 mb-2">Meal Timings</p>
+                  {renderPills(listing.mealTimings, "No meal timings added")}
+                </div>
+                <div className="glass rounded-xl p-3 md:col-span-2">
+                  <p className="text-xs opacity-60 mb-2">Weekly Menu</p>
+                  {Array.isArray(listing.sampleMenu) && listing.sampleMenu.length ? (
+                    <div className="space-y-2">
+                      {listing.sampleMenu.map((dayMenu: any, idx: number) => (
+                        <div key={`${dayMenu.day || idx}`} className="text-xs">
+                          <p className="font-semibold text-amber-300">{dayMenu.day || "Day"}</p>
+                          <p className="opacity-80 mt-0.5">
+                            {Array.isArray(dayMenu.items) && dayMenu.items.length
+                              ? dayMenu.items.join(", ")
+                              : "No items added"}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs opacity-50">No weekly menu added</p>
+                  )}
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -1053,7 +1449,7 @@ const ProviderDashboard = () => {
                             </p>
                             <div className="flex items-center justify-between mt-2 gap-2">
                               <span className="text-amber-500 font-bold text-sm">
-                                ₹{meal.minPrice?.toLocaleString()}/mo
+                                ₹{getMonthlyMealPrice(meal).toLocaleString()}/mo
                               </span>
                               <button
                                 onClick={() => setSelectedListing(meal)}
@@ -1132,6 +1528,66 @@ const ProviderDashboard = () => {
                   </div>
                   <div>
                     <label className="text-xs font-medium opacity-70 mb-1 block">
+                      Street
+                    </label>
+                    <input
+                      value={pgForm.street}
+                      onChange={(e) =>
+                        setPgForm({ ...pgForm, street: e.target.value })
+                      }
+                      placeholder="Street / Area"
+                      className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium opacity-70 mb-1 block">
+                      Landmark
+                    </label>
+                    <input
+                      value={pgForm.landmark}
+                      onChange={(e) =>
+                        setPgForm({ ...pgForm, landmark: e.target.value })
+                      }
+                      placeholder="Near Metro / Mall"
+                      className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium opacity-70 mb-1 block">
+                      Pincode
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        value={pgForm.pincode}
+                        onChange={(e) =>
+                          setPgForm({
+                            ...pgForm,
+                            pincode: e.target.value.replace(/\D/g, "").slice(0, 6),
+                          })
+                        }
+                        placeholder="560001"
+                        className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none"
+                        inputMode="numeric"
+                        maxLength={6}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handlePincodeLookup("pg")}
+                        disabled={pgPincodeLoading || pgForm.pincode.length !== 6}
+                        className="px-3 py-2.5 rounded-xl bg-amber-500/10 text-amber-500 text-xs font-medium disabled:opacity-50"
+                      >
+                        {pgPincodeLoading ? "..." : "Fetch"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium opacity-70 mb-1 block">
                       City
                     </label>
                     <input
@@ -1144,20 +1600,19 @@ const ProviderDashboard = () => {
                       required
                     />
                   </div>
-                </div>
-                <div>
-                  <label className="text-xs font-medium opacity-70 mb-1 block">
-                    Address
-                  </label>
-                  <input
-                    value={pgForm.address}
-                    onChange={(e) =>
-                      setPgForm({ ...pgForm, address: e.target.value })
-                    }
-                    placeholder="Street, Area, City"
-                    className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none"
-                    required
-                  />
+                  <div>
+                    <label className="text-xs font-medium opacity-70 mb-1 block">
+                      State
+                    </label>
+                    <input
+                      value={pgForm.state}
+                      onChange={(e) =>
+                        setPgForm({ ...pgForm, state: e.target.value })
+                      }
+                      placeholder="Karnataka"
+                      className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none"
+                    />
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
@@ -1375,31 +1830,20 @@ const ProviderDashboard = () => {
                 </div>
                 <div>
                   <label className="text-xs font-medium opacity-70 mb-1 block">
-                    Location Coordinates
+                    Listing Location
                   </label>
-                  <div className="flex gap-2">
-                    <input
-                      value={pgForm.latitude}
-                      onChange={(e) =>
-                        setPgForm({ ...pgForm, latitude: e.target.value })
-                      }
-                      placeholder="Latitude"
-                      className="flex-1 px-3 py-2.5 glass rounded-xl text-sm outline-none"
-                    />
-                    <input
-                      value={pgForm.longitude}
-                      onChange={(e) =>
-                        setPgForm({ ...pgForm, longitude: e.target.value })
-                      }
-                      placeholder="Longitude"
-                      className="flex-1 px-3 py-2.5 glass rounded-xl text-sm outline-none"
-                    />
+                  <div className="glass rounded-xl p-3 flex items-center justify-between gap-3">
+                    <div className="text-xs opacity-70">
+                      {pgForm.latitude && pgForm.longitude
+                        ? `Lat ${Number(pgForm.latitude).toFixed(6)}, Lng ${Number(pgForm.longitude).toFixed(6)}`
+                        : "Use current location to set listing coordinates"}
+                    </div>
                     <button
                       type="button"
                       onClick={() => getLocation(setPgForm)}
-                      className="px-3 py-2.5 bg-amber-500/10 text-amber-500 rounded-xl"
+                      className="px-3 py-2.5 bg-amber-500/10 text-amber-500 rounded-xl inline-flex items-center gap-1"
                     >
-                      <LocateFixed size={16} />
+                      <LocateFixed size={16} /> Current Location
                     </button>
                   </div>
                 </div>
@@ -1457,6 +1901,66 @@ const ProviderDashboard = () => {
                   </div>
                   <div>
                     <label className="text-xs font-medium opacity-70 mb-1 block">
+                      Street
+                    </label>
+                    <input
+                      value={mealForm.street}
+                      onChange={(e) =>
+                        setMealForm({ ...mealForm, street: e.target.value })
+                      }
+                      placeholder="Street / Area"
+                      className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium opacity-70 mb-1 block">
+                      Landmark
+                    </label>
+                    <input
+                      value={mealForm.landmark}
+                      onChange={(e) =>
+                        setMealForm({ ...mealForm, landmark: e.target.value })
+                      }
+                      placeholder="Near Bus Stop / School"
+                      className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium opacity-70 mb-1 block">
+                      Pincode
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        value={mealForm.pincode}
+                        onChange={(e) =>
+                          setMealForm({
+                            ...mealForm,
+                            pincode: e.target.value.replace(/\D/g, "").slice(0, 6),
+                          })
+                        }
+                        placeholder="560001"
+                        className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none"
+                        inputMode="numeric"
+                        maxLength={6}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handlePincodeLookup("meal")}
+                        disabled={mealPincodeLoading || mealForm.pincode.length !== 6}
+                        className="px-3 py-2.5 rounded-xl bg-amber-500/10 text-amber-500 text-xs font-medium disabled:opacity-50"
+                      >
+                        {mealPincodeLoading ? "..." : "Fetch"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium opacity-70 mb-1 block">
                       City
                     </label>
                     <input
@@ -1469,20 +1973,19 @@ const ProviderDashboard = () => {
                       required
                     />
                   </div>
-                </div>
-                <div>
-                  <label className="text-xs font-medium opacity-70 mb-1 block">
-                    Address
-                  </label>
-                  <input
-                    value={mealForm.address}
-                    onChange={(e) =>
-                      setMealForm({ ...mealForm, address: e.target.value })
-                    }
-                    placeholder="Street, Area, City"
-                    className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none"
-                    required
-                  />
+                  <div>
+                    <label className="text-xs font-medium opacity-70 mb-1 block">
+                      State
+                    </label>
+                    <input
+                      value={mealForm.state}
+                      onChange={(e) =>
+                        setMealForm({ ...mealForm, state: e.target.value })
+                      }
+                      placeholder="Karnataka"
+                      className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none"
+                    />
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
@@ -1556,6 +2059,59 @@ const ProviderDashboard = () => {
                     className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none"
                   />
                 </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium opacity-70">
+                      Weekly Menu
+                    </label>
+                    <button
+                      type="button"
+                      onClick={addWeeklyMenuRow}
+                      className="px-3 py-1.5 bg-amber-500/10 text-amber-500 rounded-lg text-xs font-medium hover:bg-amber-500/20 transition-colors"
+                    >
+                      + Add Day Menu
+                    </button>
+                  </div>
+                  {mealWeeklyMenu.map((entry, index) => (
+                    <div key={index} className="glass rounded-xl p-3 space-y-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <select
+                          value={entry.day}
+                          onChange={(e) =>
+                            updateWeeklyMenuRow(index, "day", e.target.value)
+                          }
+                          className="w-full px-3 py-2 glass rounded-lg text-sm outline-none"
+                        >
+                          {WEEK_DAYS.map((day) => (
+                            <option key={day} value={day}>
+                              {day}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          value={entry.itemsText}
+                          onChange={(e) =>
+                            updateWeeklyMenuRow(index, "itemsText", e.target.value)
+                          }
+                          placeholder="Menu items (comma-separated)"
+                          className="w-full px-3 py-2 glass rounded-lg text-sm outline-none"
+                        />
+                      </div>
+                      <p className="text-xs opacity-60">
+                        Example: Poha, Dal Rice, Paneer Curry
+                      </p>
+                      {mealWeeklyMenu.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeWeeklyMenuRow(index)}
+                          className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                        >
+                          Remove day menu
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
                 <textarea
                   value={mealForm.description}
                   onChange={(e) =>
@@ -1604,7 +2160,7 @@ const ProviderDashboard = () => {
                   </div>
                   {mealPlans.map((plan, index) => (
                     <div
-                      key={`${index}-${plan.name}`}
+                      key={index}
                       className="glass rounded-xl p-3 space-y-2"
                     >
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1616,6 +2172,19 @@ const ProviderDashboard = () => {
                           placeholder="Plan name (Daily/Weekly/Monthly)"
                           className="w-full px-3 py-2 glass rounded-lg text-sm outline-none"
                         />
+                        <select
+                          value={(plan as any).tier || "monthly"}
+                          onChange={(e) =>
+                            updateMealPlan(index, "tier", e.target.value)
+                          }
+                          className="w-full px-3 py-2 glass rounded-lg text-sm outline-none"
+                        >
+                          <option value="daily">Daily</option>
+                          <option value="weekly">Weekly</option>
+                          <option value="monthly">Monthly</option>
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <input
                           type="number"
                           min="1"
@@ -1633,7 +2202,7 @@ const ProviderDashboard = () => {
                           onChange={(e) =>
                             updateMealPlan(index, "duration", e.target.value)
                           }
-                          placeholder="Duration (e.g. Per Day, 1 Week, 1 Month)"
+                          placeholder="Duration (e.g. 1 Day, 7 Days, 30 Days)"
                           className="w-full px-3 py-2 glass rounded-lg text-sm outline-none"
                         />
                         <input
@@ -1647,6 +2216,9 @@ const ProviderDashboard = () => {
                           className="w-full px-3 py-2 glass rounded-lg text-sm outline-none"
                         />
                       </div>
+                      <p className="text-xs opacity-60">
+                        Tier: {(plan as any).tier || "monthly"} service
+                      </p>
                       {mealPlans.length > 1 && (
                         <button
                           type="button"
@@ -1661,31 +2233,20 @@ const ProviderDashboard = () => {
                 </div>
                 <div>
                   <label className="text-xs font-medium opacity-70 mb-1 block">
-                    Location Coordinates
+                    Listing Location
                   </label>
-                  <div className="flex gap-2">
-                    <input
-                      value={mealForm.latitude}
-                      onChange={(e) =>
-                        setMealForm({ ...mealForm, latitude: e.target.value })
-                      }
-                      placeholder="Latitude"
-                      className="flex-1 px-3 py-2.5 glass rounded-xl text-sm outline-none"
-                    />
-                    <input
-                      value={mealForm.longitude}
-                      onChange={(e) =>
-                        setMealForm({ ...mealForm, longitude: e.target.value })
-                      }
-                      placeholder="Longitude"
-                      className="flex-1 px-3 py-2.5 glass rounded-xl text-sm outline-none"
-                    />
+                  <div className="glass rounded-xl p-3 flex items-center justify-between gap-3">
+                    <div className="text-xs opacity-70">
+                      {mealForm.latitude && mealForm.longitude
+                        ? `Lat ${Number(mealForm.latitude).toFixed(6)}, Lng ${Number(mealForm.longitude).toFixed(6)}`
+                        : "Use current location to set listing coordinates"}
+                    </div>
                     <button
                       type="button"
                       onClick={() => getLocation(setMealForm)}
-                      className="px-3 py-2.5 bg-amber-500/10 text-amber-500 rounded-xl"
+                      className="px-3 py-2.5 bg-amber-500/10 text-amber-500 rounded-xl inline-flex items-center gap-1"
                     >
-                      <LocateFixed size={16} />
+                      <LocateFixed size={16} /> Current Location
                     </button>
                   </div>
                 </div>
@@ -1833,7 +2394,7 @@ const ProviderDashboard = () => {
         )}
 
         {tab === "profile" && (
-          <div className="glass rounded-2xl p-6 max-w-md">
+          <div className="glass rounded-2xl p-6 max-w-md mx-auto">
             <h3 className="font-heading text-xl font-bold mb-4">
               Provider Profile
             </h3>

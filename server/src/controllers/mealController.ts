@@ -24,7 +24,14 @@ export const getMealServices = async (req: Request, res: Response) => {
     if (city) filter.city = { $regex: city, $options: 'i' };
     if (dietType) filter.dietTypes = { $in: [(dietType as string)] };
     if (mealTiming) filter.mealTimings = { $in: [(mealTiming as string)] };
-    if (planType) filter['plans.name'] = { $regex: planType as string, $options: 'i' };
+    if (planType) {
+      const normalized = String(planType).toLowerCase();
+      if (['daily', 'weekly', 'monthly'].includes(normalized)) {
+        filter['plans.tier'] = normalized;
+      } else {
+        filter['plans.name'] = { $regex: planType as string, $options: 'i' };
+      }
+    }
     if (minPrice || maxPrice) {
       filter.minPrice = {};
       if (minPrice) filter.minPrice.$gte = Number(minPrice);
