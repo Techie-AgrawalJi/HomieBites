@@ -28,8 +28,35 @@ import listingRequestRoutes from './routes/listingRequest';
 
 const app = express();
 
+const configuredOrigins = (process.env.FRONTEND_BASE_URL || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const defaultDevOrigins = [
+  'http://localhost:5000',
+  'http://127.0.0.1:5000',
+  'http://localhost:5001',
+  'http://127.0.0.1:5001',
+  'http://localhost:5002',
+  'http://127.0.0.1:5002',
+  'http://localhost:5003',
+  'http://127.0.0.1:5003',
+];
+
+const allowedOrigins = new Set([
+  ...configuredOrigins,
+  ...(process.env.NODE_ENV !== 'production' ? defaultDevOrigins : []),
+]);
+
 app.use(cors({
-  origin: process.env.FRONTEND_BASE_URL || 'http://localhost:5000',
+  origin(origin, callback) {
+    // Allow non-browser requests (no Origin header) and approved browser origins.
+    if (!origin || allowedOrigins.has(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
 }));
 app.use(express.json());

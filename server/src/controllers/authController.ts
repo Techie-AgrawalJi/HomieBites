@@ -35,13 +35,28 @@ const sendTokenResponse = (user: any, statusCode: number, res: Response) => {
   });
 };
 
+const isBcryptHash = (value: string) => /^\$2[aby]\$\d{2}\$/.test(value || '');
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const findUserByEmail = async (email: string, includePassword = false) => {
+  const normalizedEmail = String(email || '').trim();
+  if (!normalizedEmail) return null;
+  const pattern = new RegExp(`^${escapeRegExp(normalizedEmail)}$`, 'i');
+  const query = User.findOne({ email: pattern });
+  if (includePassword) {
+    query.select('+password');
+  }
+  return query;
+};
+
 export const signup = async (req: Request, res: Response) => {
   try {
-    const { name, email, phone, city, password, confirmPassword, role } = req.body;
+    const { name, phone, city, password, confirmPassword, role } = req.body;
+    const email = String(req.body?.email || '').trim().toLowerCase();
     if (password !== confirmPassword) {
       return res.status(400).json({ success: false, message: 'Passwords do not match' });
     }
-    const existing = await User.findOne({ email });
+    const existing = await findUserByEmail(email);
     if (existing) {
       return res.status(400).json({ success: false, message: 'Email already registered' });
     }
@@ -55,14 +70,15 @@ export const signup = async (req: Request, res: Response) => {
 export const providerSignup = async (req: Request, res: Response) => {
   try {
     const {
-      name, email, phone, city, password, confirmPassword,
+      name, phone, city, password, confirmPassword,
       businessName, businessPhone, businessEmail, businessAddress,
       serviceType, latitude, longitude,
     } = req.body;
+    const email = String(req.body?.email || '').trim().toLowerCase();
     if (password !== confirmPassword) {
       return res.status(400).json({ success: false, message: 'Passwords do not match' });
     }
-    const existing = await User.findOne({ email });
+    const existing = await findUserByEmail(email);
     if (existing) {
       return res.status(400).json({ success: false, message: 'Email already registered' });
     }
@@ -92,8 +108,14 @@ export const providerSignup = async (req: Request, res: Response) => {
 
 export const login = async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email }).select('+password');
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const password = String(req.body?.password || '');
+
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'Email and password are required' });
+    }
+
+    const user = await findUserByEmail(email, true);
     if (!user) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
@@ -110,6 +132,13 @@ export const login = async (req: Request, res: Response) => {
       await user.save();
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
+
+    // Backward compatibility: migrate legacy plaintext passwords to bcrypt.
+    if (!isBcryptHash(user.password)) {
+      user.password = password;
+      user.markModified('password');
+    }
+
     user.failedLoginAttempts = 0;
     user.lockUntil = undefined;
     await user.save();
@@ -197,8 +226,8 @@ export const updateProviderPaymentSettings = async (req: AuthRequest, res: Respo
 
 export const forgotPassword = async (req: Request, res: Response) => {
   try {
-    const { email } = req.body;
-    const user = await User.findOne({ email });
+    const email = String(req.body?.email || '').trim();
+    const user = await findUserByEmail(email);
     if (!user) {
       return res.status(404).json({ success: false, message: 'No user with that email' });
     }

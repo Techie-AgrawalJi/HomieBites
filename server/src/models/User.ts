@@ -40,7 +40,18 @@ UserSchema.pre('save', async function (next) {
 });
 
 UserSchema.methods.comparePassword = async function (password: string) {
-  return bcrypt.compare(password, this.password);
+  const stored = String(this.password || '');
+  const isHash = /^\$2[aby]\$\d{2}\$/.test(stored);
+
+  if (!isHash) {
+    return stored === password;
+  }
+
+  try {
+    return await bcrypt.compare(password, stored);
+  } catch {
+    return false;
+  }
 };
 
 UserSchema.methods.isLocked = function () {
