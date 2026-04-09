@@ -8,6 +8,10 @@ import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
 const Login = () => {
+  // Demo credentials preserved for internal reference:
+  // Admin: admin@homiebites.com / password123
+  // Provider: rahul@homiebites.com / password123
+  // User: user@homiebites.com / password123
   const formRef = useRef<HTMLDivElement>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -103,13 +107,6 @@ const Login = () => {
               Don't have an account? <Link to="/signup" className="text-amber-500 font-medium hover:underline">Sign Up</Link>
             </p>
           </form>
-        </div>
-
-        <div className="mt-6 glass rounded-xl p-4 text-xs opacity-50 text-center">
-          <p className="font-medium mb-1">Demo accounts</p>
-          <p>Admin: admin@homiebites.com / password123</p>
-          <p>Provider: rahul@homiebites.com / password123</p>
-          <p>User: user@homiebites.com / password123</p>
         </div>
       </div>
     </div>
