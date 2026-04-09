@@ -35,7 +35,7 @@ const sendTokenResponse = (user: any, statusCode: number, res: Response) => {
   });
 };
 
-const isBcryptHash = (value: string) => /^\$2[aby]\$\d{2}\$/.test(value || '');
+const isBcryptHash = (value: string) => /^\$2[abxy]\$\d{2}\$/.test(value || '');
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const findUserByEmail = async (email: string, includePassword = false) => {

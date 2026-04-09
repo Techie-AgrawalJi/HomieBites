@@ -1,5 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
 export interface IUser extends Document {
   name: string;
@@ -41,17 +42,32 @@ UserSchema.pre('save', async function (next) {
 
 UserSchema.methods.comparePassword = async function (password: string) {
   const stored = String(this.password || '');
-  const isHash = /^\$2[aby]\$\d{2}\$/.test(stored);
+  const isBcryptHash = /^\$2[abxy]\$\d{2}\$/.test(stored);
 
-  if (!isHash) {
-    return stored === password;
+  if (isBcryptHash) {
+    const normalizedHash = stored.startsWith('$2y$') || stored.startsWith('$2x$')
+      ? `$2b$${stored.slice(4)}`
+      : stored;
+
+    try {
+      return await bcrypt.compare(password, normalizedHash);
+    } catch {
+      return false;
+    }
   }
 
-  try {
-    return await bcrypt.compare(password, stored);
-  } catch {
-    return false;
+  // Legacy fallback: some historical records may store SHA hashes instead of bcrypt.
+  if (/^[a-f0-9]{64}$/i.test(stored)) {
+    const sha256 = crypto.createHash('sha256').update(password).digest('hex');
+    return sha256.toLowerCase() === stored.toLowerCase();
   }
+
+  if (/^[a-f0-9]{40}$/i.test(stored)) {
+    const sha1 = crypto.createHash('sha1').update(password).digest('hex');
+    return sha1.toLowerCase() === stored.toLowerCase();
+  }
+
+  return stored === password;
 };
 
 UserSchema.methods.isLocked = function () {
