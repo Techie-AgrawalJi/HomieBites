@@ -33,9 +33,11 @@ const Login = () => {
     }
     setLoading(true);
     try {
-      await login(email, password);
+      const nextUser = await login(email, password);
       toast.success('Welcome back!');
-      navigate('/');
+      if (nextUser.role === 'superadmin') navigate('/admin');
+      else if (nextUser.role === 'provider') navigate('/provider');
+      else navigate('/dashboard');
     } catch (err: any) {
       const msg = err.response?.data?.message || 'Login failed';
       toast.error(msg);
