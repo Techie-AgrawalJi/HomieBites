@@ -7,7 +7,6 @@ import api from '../lib/axios';
 import toast from 'react-hot-toast';
 
 const TABS = [
-  { id: 'admins', label: 'Admins', icon: <ShieldCheck size={16} /> },
   { id: 'applications', label: 'Applications', icon: <ShieldCheck size={16} /> },
   { id: 'listing-requests', label: 'Listing Requests', icon: <AlertCircle size={16} /> },
   { id: 'providers', label: 'All Providers', icon: <Users size={16} /> },
@@ -31,15 +30,6 @@ const AdminPanel = () => {
   const [feedbackModal, setFeedbackModal] = useState<{ id: string; action: 'reject' | 'revise' } | null>(null);
   const [feedbackText, setFeedbackText] = useState('');
   const [detailsModal, setDetailsModal] = useState<any | null>(null);
-  const [creatingAdmin, setCreatingAdmin] = useState(false);
-  const [newAdmin, setNewAdmin] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    city: '',
-    password: '',
-    confirmPassword: '',
-  });
 
   useEffect(() => {
     Promise.all([
@@ -150,40 +140,6 @@ const AdminPanel = () => {
     return [];
   };
 
-  const createAdmin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (creatingAdmin) return;
-
-    if (!newAdmin.name || !newAdmin.email || !newAdmin.phone || !newAdmin.city || !newAdmin.password || !newAdmin.confirmPassword) {
-      toast.error('All fields are required');
-      return;
-    }
-
-    if (newAdmin.password !== newAdmin.confirmPassword) {
-      toast.error('Passwords do not match');
-      return;
-    }
-
-    setCreatingAdmin(true);
-    try {
-      await api.post('/admin/admins', newAdmin);
-      toast.success('New admin created');
-      setNewAdmin({
-        name: '',
-        email: '',
-        phone: '',
-        city: '',
-        password: '',
-        confirmPassword: '',
-      });
-    } catch (err: any) {
-      const message = err?.response?.data?.message || 'Failed to create admin';
-      toast.error(message);
-    } finally {
-      setCreatingAdmin(false);
-    }
-  };
-
   return (
     <div className="max-w-6xl mx-auto page-shell px-6 py-10">
       <div className="mb-8">
@@ -216,63 +172,6 @@ const AdminPanel = () => {
       </div>
 
       <div ref={tabContentRef}>
-        {tab === 'admins' && (
-          <div>
-            <h3 className="font-heading text-xl font-bold mb-4">Create Admin</h3>
-            <form onSubmit={createAdmin} className="glass rounded-2xl p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
-              <input
-                value={newAdmin.name}
-                onChange={(e) => setNewAdmin((prev) => ({ ...prev, name: e.target.value }))}
-                placeholder="Full name"
-                className="px-3 py-2.5 glass rounded-xl text-sm outline-none"
-              />
-              <input
-                value={newAdmin.email}
-                onChange={(e) => setNewAdmin((prev) => ({ ...prev, email: e.target.value }))}
-                placeholder="Email"
-                type="email"
-                className="px-3 py-2.5 glass rounded-xl text-sm outline-none"
-              />
-              <input
-                value={newAdmin.phone}
-                onChange={(e) => setNewAdmin((prev) => ({ ...prev, phone: e.target.value }))}
-                placeholder="Phone"
-                className="px-3 py-2.5 glass rounded-xl text-sm outline-none"
-              />
-              <input
-                value={newAdmin.city}
-                onChange={(e) => setNewAdmin((prev) => ({ ...prev, city: e.target.value }))}
-                placeholder="City"
-                className="px-3 py-2.5 glass rounded-xl text-sm outline-none"
-              />
-              <input
-                value={newAdmin.password}
-                onChange={(e) => setNewAdmin((prev) => ({ ...prev, password: e.target.value }))}
-                placeholder="Password"
-                type="password"
-                className="px-3 py-2.5 glass rounded-xl text-sm outline-none"
-              />
-              <input
-                value={newAdmin.confirmPassword}
-                onChange={(e) => setNewAdmin((prev) => ({ ...prev, confirmPassword: e.target.value }))}
-                placeholder="Confirm password"
-                type="password"
-                className="px-3 py-2.5 glass rounded-xl text-sm outline-none"
-              />
-              <div className="md:col-span-2 flex items-center justify-between gap-2 mt-1">
-                <p className="text-xs opacity-60">Only superadmin accounts can create new admins.</p>
-                <button
-                  type="submit"
-                  disabled={creatingAdmin}
-                  className="px-4 py-2 rounded-lg text-sm bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-60"
-                >
-                  {creatingAdmin ? 'Creating...' : 'Create Admin'}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
         {tab === 'applications' && (
           <div>
             <h3 className="font-heading text-xl font-bold mb-4">Provider Applications ({applications.length})</h3>

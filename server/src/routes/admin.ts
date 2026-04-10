@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getStats, getProviderApplications, getAllProviders, updateProviderStatus, getAllListings, toggleFeatured, getAllUsers, createAdmin } from '../controllers/adminController';
+import { getStats, getProviderApplications, getAllProviders, updateProviderStatus, getAllListings, toggleFeatured, getAllUsers } from '../controllers/adminController';
 import { getAdminListingRequests, approveListing, rejectListing, requestRevisions } from '../controllers/listingRequestController';
 import { protect, requireRole } from '../middleware/auth';
 
@@ -14,7 +14,6 @@ router.patch('/providers/:id/status', updateProviderStatus);
 router.get('/listings', getAllListings);
 router.patch('/listings/:type/:id/featured', toggleFeatured);
 router.get('/users', getAllUsers);
-router.post('/admins', createAdmin);
 
 // Listing request routes
 router.get('/listing-requests', getAdminListingRequests);
