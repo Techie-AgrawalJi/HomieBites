@@ -306,7 +306,7 @@ const DiscoverListings = () => {
         <p className="opacity-60 page-subtitle">Search by city or use your current location to view nearby PGs and meals together.</p>
       </div>
 
-      <section className="glass rounded-3xl p-5 sm:p-6 mb-8 border border-white/10">
+      <section className="glass rounded-3xl p-5 sm:p-6 mb-8 border border-[var(--border)]">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end">
           <div className="flex-1">
             <label className="text-xs uppercase tracking-[0.2em] opacity-50 mb-2 block">Search by city</label>

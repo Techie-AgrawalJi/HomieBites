@@ -112,7 +112,7 @@ const Navbar = () => {
       </div>
 
       {menuOpen && (
-        <div className="md:hidden mt-3 py-3 border-t border-white/10 flex flex-col gap-3">
+        <div className="md:hidden mt-3 py-3 border-t border-[var(--border)] flex flex-col gap-3">
           {navLinks.map(({ to, label, icon }) => (
             <Link key={to} to={to} onClick={() => setMenuOpen(false)} className="flex items-center gap-2 px-2 py-1 hover:text-amber-500 transition-colors">
               {icon}{label}

@@ -20,4 +20,7 @@ const ReviewSchema = new Schema<IReview>({
   verifiedBooker: { type: Boolean, default: false },
 }, { timestamps: true });
 
+ReviewSchema.index({ listing: 1, listingType: 1, createdAt: -1 });
+ReviewSchema.index({ user: 1, listing: 1, listingType: 1 }, { unique: true });
+
 export default mongoose.model<IReview>('Review', ReviewSchema);

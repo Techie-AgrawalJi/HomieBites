@@ -25,6 +25,8 @@ import bookingRoutes from './routes/booking';
 import adminRoutes from './routes/admin';
 import paymentRoutes from './routes/payment';
 import listingRequestRoutes from './routes/listingRequest';
+import reviewRoutes from './routes/review';
+import platformFeedbackRoutes from './routes/platformFeedback';
 
 const app = express();
 
@@ -70,6 +72,8 @@ app.use('/api/bookings', bookingRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/listing-requests', listingRequestRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/platform-feedback', platformFeedbackRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ success: true, message: 'HomieBites API is running' });

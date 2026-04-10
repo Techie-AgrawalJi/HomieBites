@@ -8,7 +8,7 @@ export interface IUser extends Document {
   phone: string;
   city: string;
   password: string;
-  role: 'user' | 'provider' | 'superadmin';
+  role: 'user' | 'provider' | 'superadmin' | 'admin';
   savedListings: mongoose.Types.ObjectId[];
   bookings: mongoose.Types.ObjectId[];
   resetPasswordToken?: string;
@@ -25,7 +25,7 @@ const UserSchema = new Schema<IUser>({
   phone: { type: String, required: true },
   city: { type: String, required: true },
   password: { type: String, required: true, minlength: 6 },
-  role: { type: String, enum: ['user', 'provider', 'superadmin'], default: 'user' },
+  role: { type: String, enum: ['user', 'provider', 'superadmin', 'admin'], default: 'user' },
   savedListings: [{ type: Schema.Types.ObjectId }],
   bookings: [{ type: Schema.Types.ObjectId, ref: 'Booking' }],
   resetPasswordToken: String,

@@ -26,7 +26,9 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
 
 export const requireRole = (...roles: string[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
-    if (!req.user || !roles.includes(req.user.role)) {
+    const role = String(req.user?.role || '');
+    const normalizedRole = role === 'admin' ? 'superadmin' : role;
+    if (!req.user || !roles.includes(normalizedRole)) {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
     next();

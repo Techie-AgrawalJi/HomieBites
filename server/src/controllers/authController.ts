@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import User from '../models/User';
 import PGListing from '../models/PGListing';
 import Provider from '../models/Provider';
@@ -12,6 +13,8 @@ const signToken = (id: string) => {
     expiresIn: (process.env.JWT_EXPIRY || '7d') as any,
   });
 };
+
+const normalizeRoleForClient = (role: string) => (role === 'admin' ? 'superadmin' : role);
 
 const sendTokenResponse = (user: any, statusCode: number, res: Response) => {
   const token = signToken(user._id.toString());
@@ -28,7 +31,7 @@ const sendTokenResponse = (user: any, statusCode: number, res: Response) => {
       _id: user._id,
       name: user.name,
       email: user.email,
-      role: user.role,
+      role: normalizeRoleForClient(user.role),
       city: user.city,
     },
     message: 'Success',
@@ -140,24 +143,31 @@ export const login = async (req: Request, res: Response) => {
     }
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      user.failedLoginAttempts += 1;
-      if (user.failedLoginAttempts >= 5) {
-        user.lockUntil = new Date(Date.now() + 15 * 60 * 1000);
-        user.failedLoginAttempts = 0;
-      }
-      await user.save();
+      const failedLoginAttempts = Number(user.failedLoginAttempts || 0) + 1;
+      const lockUntil = failedLoginAttempts >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null;
+      await User.updateOne(
+        { _id: user._id },
+        failedLoginAttempts >= 5
+          ? { $set: { failedLoginAttempts: 0, lockUntil } }
+          : { $set: { failedLoginAttempts }, $unset: { lockUntil: '' } }
+      );
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    // Backward compatibility: migrate legacy plaintext passwords to bcrypt.
-    if (!isBcryptHash(user.password)) {
-      user.password = password;
-      user.markModified('password');
+    const postLoginUpdate: any = {
+      failedLoginAttempts: 0,
+      lockUntil: null,
+    };
+
+    // Backward compatibility: migrate legacy non-bcrypt passwords to bcrypt without full document validation.
+    if (!isBcryptHash(String(user.password || ''))) {
+      postLoginUpdate.password = await bcrypt.hash(password, 12);
     }
 
-    user.failedLoginAttempts = 0;
-    user.lockUntil = undefined;
-    await user.save();
+    await User.updateOne(
+      { _id: user._id },
+      { $set: postLoginUpdate }
+    );
 
     if (user.role === 'provider') {
       const provider = await Provider.findOne({ user: user._id });
@@ -191,7 +201,12 @@ export const getMe = async (req: AuthRequest, res: Response) => {
     if (user.role === 'provider') {
       providerData = await Provider.findOne({ user: user._id });
     }
-    res.json({ success: true, data: { user, provider: providerData }, message: 'Success' });
+    const sanitizedUser = {
+      ...user.toObject(),
+      role: normalizeRoleForClient(String(user.role || 'user')),
+    };
+
+    res.json({ success: true, data: { user: sanitizedUser, provider: providerData }, message: 'Success' });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }

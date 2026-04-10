@@ -15,6 +15,18 @@ interface PGModalProps {
   onViewMeal: (meal: any) => void;
 }
 
+interface ListingReview {
+  _id: string;
+  rating: number;
+  comment: string;
+  verifiedBooker?: boolean;
+  createdAt: string;
+  user?: {
+    _id?: string;
+    name?: string;
+  };
+}
+
 const PGModal: React.FC<PGModalProps> = ({ pg, detail, onClose, onViewMeal }) => {
   const FALLBACK_PG_PHOTO = 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=800';
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -25,8 +37,15 @@ const PGModal: React.FC<PGModalProps> = ({ pg, detail, onClose, onViewMeal }) =>
   const [isPhotoTransitioning, setIsPhotoTransitioning] = useState(false);
   const [nearbyEdge, setNearbyEdge] = useState({ left: false, right: false });
   const [booking, setBooking] = useState({ roomType: '', message: '', startDate: '' });
+  const [reviews, setReviews] = useState<ListingReview[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ rating: 0, comment: '' });
+  const [reviewStats, setReviewStats] = useState({ averageRating: Number(pg.averageRating || 0), reviewCount: Number(pg.reviewCount || 0) });
   const { user } = useAuth();
   const isBookingRestrictedUser = ['provider', 'superadmin', 'admin'].includes(user?.role || '');
+  const canSubmitReview = !!user && user.role === 'user';
   const rawPhotos = Array.isArray(pg.photos) ? pg.photos : [];
   const photos = rawPhotos
     .filter((src: unknown): src is string => typeof src === 'string')
@@ -119,6 +138,42 @@ const PGModal: React.FC<PGModalProps> = ({ pg, detail, onClose, onViewMeal }) =>
     setActivePhoto(0);
   }, [galleryPhotos.length, activePhoto]);
 
+  useEffect(() => {
+    let active = true;
+
+    const loadReviews = async () => {
+      if (!pg?._id) return;
+      setReviewsLoading(true);
+      try {
+        const res = await api.get('/reviews', {
+          params: {
+            listingId: pg._id,
+            listingType: 'pg',
+            page: 1,
+            limit: 50,
+          },
+        });
+        if (!active) return;
+        setReviews(res.data?.data?.reviews || []);
+        setReviewStats({
+          averageRating: Number(res.data?.data?.averageRating || 0),
+          reviewCount: Number(res.data?.data?.reviewCount || 0),
+        });
+      } catch {
+        if (!active) return;
+        setReviews([]);
+      } finally {
+        if (active) setReviewsLoading(false);
+      }
+    };
+
+    loadReviews();
+
+    return () => {
+      active = false;
+    };
+  }, [pg?._id]);
+
   const handleNearbyKeyScroll = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (!nearbyRowRef.current) return;
     const delta = e.key === 'ArrowRight' ? 220 : e.key === 'ArrowLeft' ? -220 : 0;
@@ -175,6 +230,56 @@ const PGModal: React.FC<PGModalProps> = ({ pg, detail, onClose, onViewMeal }) =>
         });
       },
     });
+  };
+
+  const handleSubmitReview = async () => {
+    if (!user) {
+      toast.error('Please login to write a review');
+      return;
+    }
+    if (user.role !== 'user') {
+      toast.error('Only registered users can post reviews');
+      return;
+    }
+    if (reviewForm.rating < 1 || reviewForm.rating > 5) {
+      toast.error('Please select a rating');
+      return;
+    }
+    const cleanedComment = reviewForm.comment.trim();
+    if (!cleanedComment) {
+      toast.error('Please write a short review comment');
+      return;
+    }
+
+    setReviewSubmitting(true);
+    try {
+      const res = await api.post('/reviews', {
+        listingId: pg._id,
+        listingType: 'pg',
+        rating: reviewForm.rating,
+        comment: cleanedComment,
+      });
+
+      const nextReview = res.data?.data?.review as ListingReview | undefined;
+      if (nextReview) {
+        setReviews((prev) => {
+          const filtered = prev.filter((item) => item.user?._id !== user._id);
+          return [nextReview, ...filtered];
+        });
+      }
+
+      setReviewStats({
+        averageRating: Number(res.data?.data?.averageRating || 0),
+        reviewCount: Number(res.data?.data?.reviewCount || 0),
+      });
+      setReviewForm({ rating: 0, comment: '' });
+      setShowReviewForm(false);
+      toast.success('Review submitted');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Unable to submit review');
+    } finally {
+      setReviewSubmitting(false);
+    }
   };
 
   const handleBook = async () => {
@@ -249,8 +354,8 @@ const PGModal: React.FC<PGModalProps> = ({ pg, detail, onClose, onViewMeal }) =>
                 <h2 className="font-heading text-xl sm:text-2xl leading-tight font-bold break-words w-full">{pg.name}</h2>
                 <div className="pg-modal-rating self-start shrink-0 flex items-center gap-1 text-amber-400">
                   <Star size={16} fill="currentColor" />
-                  <span className="font-semibold">{pg.averageRating?.toFixed(1) || '4.0'}</span>
-                  <span className="text-sm opacity-60">({pg.reviewCount || 0})</span>
+                  <span className="font-semibold">{reviewStats.averageRating > 0 ? reviewStats.averageRating.toFixed(1) : '0.0'}</span>
+                  <span className="text-sm opacity-60">({reviewStats.reviewCount})</span>
                 </div>
               </div>
               <div className="flex items-start gap-1 text-sm opacity-60 mt-1 break-words"><MapPin size={13} className="mt-0.5 shrink-0" />{pg.address}</div>
@@ -299,11 +404,6 @@ const PGModal: React.FC<PGModalProps> = ({ pg, detail, onClose, onViewMeal }) =>
               </div>
             )}
 
-            {/* Map placeholder */}
-            <div className="h-36 glass rounded-xl flex items-center justify-center text-sm opacity-50">
-              <MapPin className="mr-2 text-amber-500" /> Map view — {pg.address}
-            </div>
-
             {/* Nearby Meal Services */}
             {detail?.nearbyMealServices?.length > 0 && (
               <div>
@@ -329,6 +429,82 @@ const PGModal: React.FC<PGModalProps> = ({ pg, detail, onClose, onViewMeal }) =>
                 </div>
               </div>
             )}
+
+            {/* Reviews */}
+            <div>
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <h3 className="font-semibold">Reviews</h3>
+                {canSubmitReview && (
+                  <button
+                    type="button"
+                    onClick={() => setShowReviewForm((prev) => !prev)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 text-white hover:bg-amber-600 transition-colors"
+                  >
+                    {showReviewForm ? 'Cancel' : 'Add Review'}
+                  </button>
+                )}
+              </div>
+              {reviewsLoading ? (
+                <p className="text-sm opacity-60">Loading reviews...</p>
+              ) : reviews.length === 0 ? (
+                <p className="text-sm opacity-60">No reviews yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {reviews.map((review) => (
+                    <div key={review._id} className="glass rounded-xl p-3">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <p className="text-sm font-medium">{review.user?.name || 'User'}</p>
+                        <span className="text-xs opacity-50">{new Date(review.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-amber-400 mb-2">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star key={i} size={14} fill={i < review.rating ? 'currentColor' : 'none'} className={i < review.rating ? '' : 'text-slate-400 dark:text-slate-500'} />
+                        ))}
+                        {review.verifiedBooker && <span className="text-[11px] ml-2 px-2 py-0.5 rounded-full bg-green-500/20 text-green-400">Verified booker</span>}
+                      </div>
+                      <p className="text-sm opacity-80 leading-relaxed">{review.comment}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {!user && <p className="text-xs opacity-60 mt-3">Login as a registered user to add a review.</p>}
+              {user && user.role !== 'user' && <p className="text-xs opacity-60 mt-3">Only registered users can add reviews.</p>}
+              {canSubmitReview && showReviewForm && (
+                <div className="glass rounded-xl p-3 mt-4 space-y-3">
+                  <div>
+                    <p className="text-xs opacity-60 mb-1">Your Rating</p>
+                    <div className="flex items-center gap-1">
+                      {[1, 2, 3, 4, 5].map((value) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setReviewForm((prev) => ({ ...prev, rating: value }))}
+                          className="p-1"
+                          aria-label={`Rate ${value} star${value > 1 ? 's' : ''}`}
+                        >
+                          <Star size={16} fill={value <= reviewForm.rating ? 'currentColor' : 'none'} className={value <= reviewForm.rating ? 'text-amber-400' : 'text-slate-400 dark:text-slate-500'} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <textarea
+                    value={reviewForm.comment}
+                    onChange={(e) => setReviewForm((prev) => ({ ...prev, comment: e.target.value }))}
+                    placeholder="Share your experience"
+                    rows={3}
+                    className="w-full px-3 py-2 glass rounded-lg text-sm outline-none resize-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSubmitReview}
+                    disabled={reviewSubmitting}
+                    className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-semibold hover:bg-amber-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Sidebar */}
