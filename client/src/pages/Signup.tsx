@@ -5,7 +5,7 @@ import { Building2, UtensilsCrossed, User, Eye, EyeOff, LocateFixed } from 'luci
 import { animateFormFields, animateRoleCardBorder } from '../animations/pageTransitions';
 import { shakeElement } from '../animations/cardAnimations';
 import { useAuth } from '../context/AuthContext';
-import api from '../lib/axios';
+import api, { tokenStorageKey } from '../lib/axios';
 import toast from 'react-hot-toast';
 
 const Signup = () => {
@@ -51,7 +51,9 @@ const Signup = () => {
     setLoading(true);
     try {
       if (role === 'user') {
-        await api.post('/auth/signup', form);
+        const res = await api.post('/auth/signup', form);
+        const token = res.data?.data?.token;
+        if (token) window.localStorage.setItem(tokenStorageKey, token);
         await refetch();
         toast.success('Welcome to HomieBites!');
         navigate('/');

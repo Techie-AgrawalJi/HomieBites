@@ -8,7 +8,9 @@ export interface AuthRequest extends Request {
 
 export const protect = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const token = req.cookies?.token;
+    const authHeader = String(req.headers.authorization || '');
+    const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    const token = bearerToken || req.cookies?.token;
     if (!token) {
       return res.status(401).json({ success: false, message: 'Not authenticated' });
     }

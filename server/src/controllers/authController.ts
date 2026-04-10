@@ -47,6 +47,7 @@ const sendTokenResponse = (req: Request, user: any, statusCode: number, res: Res
       email: user.email,
       role: user.role,
       city: user.city,
+      token,
     },
     message: 'Success',
   });

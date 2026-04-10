@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import api from '../lib/axios';
+import api, { tokenStorageKey } from '../lib/axios';
 
 interface User {
   _id: string;
@@ -23,6 +23,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const saveToken = (token?: string) => {
+    if (typeof window === 'undefined') return;
+    if (token) {
+      window.localStorage.setItem(tokenStorageKey, token);
+    } else {
+      window.localStorage.removeItem(tokenStorageKey);
+    }
+  };
+
   const refetch = async () => {
     try {
       const res = await api.get('/auth/me');
@@ -38,11 +47,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (email: string, password: string) => {
     const res = await api.post('/auth/login', { email, password });
+    saveToken(res.data?.data?.token);
     setUser(res.data.data);
   };
 
   const logout = async () => {
     await api.post('/auth/logout');
+    saveToken();
     setUser(null);
   };
 
