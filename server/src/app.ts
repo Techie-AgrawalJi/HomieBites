@@ -35,6 +35,27 @@ const configuredOrigins = (process.env.FRONTEND_BASE_URL || '')
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+const normalizeOrigin = (origin: string) => origin.replace(/\/$/, '').toLowerCase();
+const configuredOriginSet = new Set(configuredOrigins.map(normalizeOrigin));
+
+const isVercelOrigin = (origin: string) => {
+  try {
+    return /\.vercel\.app$/i.test(new URL(origin).hostname);
+  } catch {
+    return false;
+  }
+};
+
+const isSameHostRequest = (origin: string, req: express.Request) => {
+  try {
+    const originHost = new URL(origin).host.toLowerCase();
+    const requestHost = String(req.headers['x-forwarded-host'] || req.get('host') || '').toLowerCase();
+    return !!requestHost && originHost === requestHost;
+  } catch {
+    return false;
+  }
+};
+
 const defaultDevOrigins = [
   'http://localhost:5000',
   'http://127.0.0.1:5000',
@@ -51,15 +72,26 @@ const allowedOrigins = new Set([
   ...(process.env.NODE_ENV !== 'production' ? defaultDevOrigins : []),
 ]);
 
-app.use(cors({
-  origin(origin, callback) {
-    // Allow non-browser requests (no Origin header) and approved browser origins.
-    if (!origin || allowedOrigins.has(origin)) {
-      return callback(null, true);
-    }
-    return callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true,
+const allowedOriginSet = new Set(Array.from(allowedOrigins).map(normalizeOrigin));
+
+app.use(cors((req, callback) => {
+  const origin = String(req.headers.origin || '');
+
+  // Allow non-browser requests (no Origin header).
+  if (!origin) {
+    return callback(null, { origin: true, credentials: true });
+  }
+
+  const normalized = normalizeOrigin(origin);
+  const isAllowedConfigured = allowedOriginSet.has(normalized) || configuredOriginSet.has(normalized);
+  const isAllowedSameHost = isSameHostRequest(origin, req);
+  const isAllowedVercel = process.env.NODE_ENV === 'production' && isVercelOrigin(origin);
+
+  if (isAllowedConfigured || isAllowedSameHost || isAllowedVercel) {
+    return callback(null, { origin: true, credentials: true });
+  }
+
+  return callback(new Error(`Not allowed by CORS: ${origin}`));
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

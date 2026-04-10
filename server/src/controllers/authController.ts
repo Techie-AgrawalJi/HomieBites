@@ -13,13 +13,30 @@ const signToken = (id: string) => {
   });
 };
 
-const sendTokenResponse = (user: any, statusCode: number, res: Response) => {
+const isCrossSiteRequest = (req: Request) => {
+  const origin = String(req.headers.origin || '');
+  const requestHost = String(req.headers['x-forwarded-host'] || req.get('host') || '');
+  if (!origin || !requestHost) return false;
+
+  try {
+    return new URL(origin).host.toLowerCase() !== requestHost.toLowerCase();
+  } catch {
+    return false;
+  }
+};
+
+const sendTokenResponse = (req: Request, user: any, statusCode: number, res: Response) => {
   const token = signToken(user._id.toString());
   const days = parseInt(process.env.COOKIE_EXPIRY || '7');
+  const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
+  const isHttps = forwardedProto === 'https' || process.env.NODE_ENV === 'production';
+  const crossSite = isCrossSiteRequest(req);
+
   res.cookie('token', token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    secure: isHttps,
+    sameSite: crossSite ? 'none' : 'lax',
+    path: '/',
     maxAge: days * 24 * 60 * 60 * 1000,
   });
   res.status(statusCode).json({
@@ -77,7 +94,7 @@ export const signup = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'Email already registered' });
     }
     const user = await User.create({ name, email, phone, city, password, role: 'user' });
-    sendTokenResponse(user, 201, res);
+    sendTokenResponse(req, user, 201, res);
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -173,7 +190,7 @@ export const login = async (req: Request, res: Response) => {
         }
       }
     }
-    sendTokenResponse(user, 200, res);
+    sendTokenResponse(req, user, 200, res);
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }
