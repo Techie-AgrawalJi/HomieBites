@@ -51,6 +51,7 @@ If you already use additional env vars in server `.env`, add all of them in Verc
 
 1. This setup uses same-domain API (`/api`), so cookie auth works without cross-domain changes.
 2. Keep `withCredentials: true` in frontend axios (already configured).
+3. Do not set `VITE_API_BASE_URL` in Vercel for this single-project deployment; frontend should call same-origin `/api`.
 
 ## 6. Local Development (unchanged)
 

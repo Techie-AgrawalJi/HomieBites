@@ -1,7 +1,14 @@
 import axios from 'axios';
 
+const envBaseUrl = String(import.meta.env.VITE_API_BASE_URL || '').trim();
+const browserHost = typeof window !== 'undefined' ? window.location.hostname : '';
+const isLocalHost = browserHost === 'localhost' || browserHost === '127.0.0.1';
+
+// In deployed environments, always use same-origin API to keep cookie auth reliable.
+const resolvedBaseUrl = !isLocalHost ? '/api' : (envBaseUrl || '/api');
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL: resolvedBaseUrl,
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 });
