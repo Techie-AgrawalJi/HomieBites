@@ -41,33 +41,85 @@ UserSchema.pre('save', async function (next) {
 });
 
 UserSchema.methods.comparePassword = async function (password: string) {
-  const stored = String(this.password || '');
-  const isBcryptHash = /^\$2[abxy]\$\d{2}\$/.test(stored);
+  const raw = String(this.password || '');
+  const candidates = Array.from(new Set([
+    raw,
+    raw.trim(),
+    raw.replace(/^"|"$/g, '').trim(),
+    raw.replace(/^'|'$/g, '').trim(),
+    raw.startsWith('{bcrypt}') ? raw.slice(8).trim() : raw,
+  ])).filter(Boolean);
 
-  if (isBcryptHash) {
-    const normalizedHash = stored.startsWith('$2y$') || stored.startsWith('$2x$')
-      ? `$2b$${stored.slice(4)}`
-      : stored;
+  const passwordsToTry = Array.from(new Set([
+    String(password || ''),
+    String(password || '').trim(),
+  ]));
 
-    try {
-      return await bcrypt.compare(password, normalizedHash);
-    } catch {
-      return false;
+  const normalizeBcryptHash = (hash: string) => {
+    if (hash.startsWith('$2y$') || hash.startsWith('$2x$')) {
+      return `$2b$${hash.slice(4)}`;
+    }
+    return hash;
+  };
+
+  for (const candidate of candidates) {
+    if (/^\$2[abxy]\$\d{2}\$/.test(candidate)) {
+      const normalizedHash = normalizeBcryptHash(candidate);
+      for (const pwd of passwordsToTry) {
+        try {
+          if (await bcrypt.compare(pwd, normalizedHash)) {
+            return true;
+          }
+        } catch {
+          // Try next candidate format.
+        }
+      }
+    }
+
+    if (/^[a-f0-9]{128}$/i.test(candidate)) {
+      for (const pwd of passwordsToTry) {
+        const sha512 = crypto.createHash('sha512').update(pwd).digest('hex');
+        if (sha512.toLowerCase() === candidate.toLowerCase()) {
+          return true;
+        }
+      }
+    }
+
+    if (/^[a-f0-9]{64}$/i.test(candidate)) {
+      for (const pwd of passwordsToTry) {
+        const sha256 = crypto.createHash('sha256').update(pwd).digest('hex');
+        if (sha256.toLowerCase() === candidate.toLowerCase()) {
+          return true;
+        }
+      }
+    }
+
+    if (/^[a-f0-9]{40}$/i.test(candidate)) {
+      for (const pwd of passwordsToTry) {
+        const sha1 = crypto.createHash('sha1').update(pwd).digest('hex');
+        if (sha1.toLowerCase() === candidate.toLowerCase()) {
+          return true;
+        }
+      }
+    }
+
+    if (/^[a-f0-9]{32}$/i.test(candidate)) {
+      for (const pwd of passwordsToTry) {
+        const md5 = crypto.createHash('md5').update(pwd).digest('hex');
+        if (md5.toLowerCase() === candidate.toLowerCase()) {
+          return true;
+        }
+      }
+    }
+
+    for (const pwd of passwordsToTry) {
+      if (candidate === pwd) {
+        return true;
+      }
     }
   }
 
-  // Legacy fallback: some historical records may store SHA hashes instead of bcrypt.
-  if (/^[a-f0-9]{64}$/i.test(stored)) {
-    const sha256 = crypto.createHash('sha256').update(password).digest('hex');
-    return sha256.toLowerCase() === stored.toLowerCase();
-  }
-
-  if (/^[a-f0-9]{40}$/i.test(stored)) {
-    const sha1 = crypto.createHash('sha1').update(password).digest('hex');
-    return sha1.toLowerCase() === stored.toLowerCase();
-  }
-
-  return stored === password;
+  return false;
 };
 
 UserSchema.methods.isLocked = function () {
