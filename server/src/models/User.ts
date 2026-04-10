@@ -50,9 +50,23 @@ UserSchema.methods.comparePassword = async function (password: string) {
     raw.startsWith('{bcrypt}') ? raw.slice(8).trim() : raw,
   ])).filter(Boolean);
 
+  const passwordRaw = String(password || '');
+  const passwordTrimmed = passwordRaw.trim();
+  const digestCandidates = Array.from(new Set([
+    crypto.createHash('sha512').update(passwordRaw).digest('hex'),
+    crypto.createHash('sha256').update(passwordRaw).digest('hex'),
+    crypto.createHash('sha1').update(passwordRaw).digest('hex'),
+    crypto.createHash('md5').update(passwordRaw).digest('hex'),
+    crypto.createHash('sha512').update(passwordTrimmed).digest('hex'),
+    crypto.createHash('sha256').update(passwordTrimmed).digest('hex'),
+    crypto.createHash('sha1').update(passwordTrimmed).digest('hex'),
+    crypto.createHash('md5').update(passwordTrimmed).digest('hex'),
+  ]));
+
   const passwordsToTry = Array.from(new Set([
-    String(password || ''),
-    String(password || '').trim(),
+    passwordRaw,
+    passwordTrimmed,
+    ...digestCandidates,
   ]));
 
   const normalizeBcryptHash = (hash: string) => {
@@ -109,6 +123,20 @@ UserSchema.methods.comparePassword = async function (password: string) {
         if (md5.toLowerCase() === candidate.toLowerCase()) {
           return true;
         }
+      }
+    }
+
+    // Some legacy systems stored base64-encoded plaintext or digest strings.
+    if (/^[A-Za-z0-9+/=]+$/.test(candidate) && candidate.length % 4 === 0) {
+      try {
+        const decoded = Buffer.from(candidate, 'base64').toString('utf8');
+        for (const pwd of passwordsToTry) {
+          if (decoded === pwd) {
+            return true;
+          }
+        }
+      } catch {
+        // Ignore invalid base64 and continue other checks.
       }
     }
 
