@@ -32,6 +32,11 @@ const readStoredUser = (): User | null => {
   }
 };
 
+const readStoredToken = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(tokenStorageKey);
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(() => readStoredUser());
   const [loading, setLoading] = useState(true);
@@ -51,14 +56,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const refetch = async () => {
+    const token = readStoredToken();
+    const storedUser = readStoredUser();
+    if (!token) {
+      setUser(storedUser);
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await api.get('/auth/me');
       const nextUser = res.data.data.user;
       setUser(nextUser);
-      saveSession({ token: window.localStorage.getItem(tokenStorageKey) || undefined, user: nextUser });
-    } catch {
-      setUser(null);
-      saveSession();
+      saveSession({ token, user: nextUser });
+    } catch (error: any) {
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) {
+        setUser(null);
+        saveSession();
+      } else {
+        setUser(storedUser);
+      }
     } finally {
       setLoading(false);
     }
