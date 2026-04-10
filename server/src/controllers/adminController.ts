@@ -87,3 +87,55 @@ export const getAllUsers = async (_req: AuthRequest, res: Response) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+export const createAdmin = async (req: AuthRequest, res: Response) => {
+  try {
+    const name = String(req.body?.name || '').trim();
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const phone = String(req.body?.phone || '').trim();
+    const city = String(req.body?.city || '').trim();
+    const password = String(req.body?.password || '');
+    const confirmPassword = String(req.body?.confirmPassword || '');
+
+    if (!name || !email || !phone || !city || !password || !confirmPassword) {
+      return res.status(400).json({ success: false, message: 'All fields are required' });
+    }
+
+    if (password !== confirmPassword) {
+      return res.status(400).json({ success: false, message: 'Passwords do not match' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    }
+
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'Email already registered' });
+    }
+
+    const admin = await User.create({
+      name,
+      email,
+      phone,
+      city,
+      password,
+      role: 'superadmin',
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: {
+        _id: admin._id,
+        name: admin.name,
+        email: admin.email,
+        phone: admin.phone,
+        city: admin.city,
+        role: admin.role,
+      },
+      message: 'Admin created successfully',
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
