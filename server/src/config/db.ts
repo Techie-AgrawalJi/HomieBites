@@ -14,7 +14,7 @@ const connectDB = async (retries = 10, delay = 2000): Promise<void> => {
         serverSelectionTimeoutMS: 5000,
         connectTimeoutMS: 10000,
       });
-      console.log(`MongoDB Connected: ${conn.connection.host}`);
+      console.log(`MongoDB Connected: ${conn.connection.host}/${conn.connection.name}`);
       isConnected = true;
       return;
     } catch (error: any) {
