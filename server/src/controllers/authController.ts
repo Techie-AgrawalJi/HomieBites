@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
 import User from '../models/User';
 import PGListing from '../models/PGListing';
 import Provider from '../models/Provider';
@@ -13,16 +12,6 @@ const signToken = (id: string) => {
     expiresIn: (process.env.JWT_EXPIRY || '7d') as any,
   });
 };
-
-const normalizeRoleForClient = (role: string) => (role === 'admin' ? 'superadmin' : role);
-const normalizeIdentifier = (value: string) =>
-  String(value || '')
-    .normalize('NFKC')
-    .replace(/[\u200B-\u200D\uFEFF]/g, '')
-    .trim()
-    .toLowerCase();
-
-const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const sendTokenResponse = (user: any, statusCode: number, res: Response) => {
   const token = signToken(user._id.toString());
@@ -39,7 +28,7 @@ const sendTokenResponse = (user: any, statusCode: number, res: Response) => {
       _id: user._id,
       name: user.name,
       email: user.email,
-      role: normalizeRoleForClient(user.role),
+      role: user.role,
       city: user.city,
     },
     message: 'Success',
@@ -48,7 +37,7 @@ const sendTokenResponse = (user: any, statusCode: number, res: Response) => {
 
 const isBcryptHash = (value: string) => /^\$2[abxy]\$\d{2}\$/.test(value || '');
 const findUserByEmail = async (email: string, includePassword = false) => {
-  const normalizedEmail = normalizeIdentifier(email);
+  const normalizedEmail = String(email || '').trim().toLowerCase();
   if (!normalizedEmail) return null;
 
   // Fast path for records already normalized by current schema behavior.
@@ -73,67 +62,7 @@ const findUserByEmail = async (email: string, includePassword = false) => {
     legacyQuery.select('+password');
   }
 
-  const legacyUser = await legacyQuery;
-  if (legacyUser) return legacyUser;
-
-  // Extra fallback for very old records where email may contain unexpected whitespace.
-  const regexFallback = User.findOne({
-    email: { $regex: new RegExp(`^\\s*${escapeRegex(normalizedEmail)}\\s*$`, 'i') },
-  });
-  if (includePassword) {
-    regexFallback.select('+password');
-  }
-
-  return regexFallback;
-};
-
-const findUserByProviderBusinessEmail = async (email: string, includePassword = false) => {
-  const normalizedEmail = normalizeIdentifier(email);
-  if (!normalizedEmail) return null;
-
-  const provider = await Provider.findOne({
-    $or: [
-      { businessEmail: normalizedEmail },
-      {
-        $expr: {
-          $eq: [
-            { $toLower: { $trim: { input: '$businessEmail' } } },
-            normalizedEmail,
-          ],
-        },
-      },
-      {
-        businessEmail: { $regex: new RegExp(`^\\s*${escapeRegex(normalizedEmail)}\\s*$`, 'i') },
-      },
-    ],
-  }).select('user');
-
-  if (!provider?.user) return null;
-
-  const query = User.findById(provider.user);
-  if (includePassword) {
-    query.select('+password');
-  }
-  return query;
-};
-
-const findUserForLogin = async (identifier: string, includePassword = false) => {
-  const normalizedIdentifier = normalizeIdentifier(identifier);
-  if (!normalizedIdentifier) return null;
-
-  let user = await findUserByEmail(normalizedIdentifier, includePassword);
-  if (user) return user;
-
-  user = await findUserByProviderBusinessEmail(normalizedIdentifier, includePassword);
-  if (user) return user;
-
-  // Legacy fallback: allow phone-based login for old production accounts.
-  const phoneCandidate = String(identifier || '').trim();
-  const query = User.findOne({ phone: phoneCandidate });
-  if (includePassword) {
-    query.select('+password');
-  }
-  return query;
+  return legacyQuery;
 };
 
 export const signup = async (req: Request, res: Response) => {
@@ -195,14 +124,14 @@ export const providerSignup = async (req: Request, res: Response) => {
 
 export const login = async (req: Request, res: Response) => {
   try {
-    const identifier = String(req.body?.email || '').trim();
+    const email = String(req.body?.email || '').trim().toLowerCase();
     const password = String(req.body?.password || '');
 
-    if (!identifier || !password) {
+    if (!email || !password) {
       return res.status(400).json({ success: false, message: 'Email and password are required' });
     }
 
-    const user = await findUserForLogin(identifier, true);
+    const user = await findUserByEmail(email, true);
     if (!user) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
@@ -211,31 +140,24 @@ export const login = async (req: Request, res: Response) => {
     }
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      const failedLoginAttempts = Number(user.failedLoginAttempts || 0) + 1;
-      const lockUntil = failedLoginAttempts >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null;
-      await User.updateOne(
-        { _id: user._id },
-        failedLoginAttempts >= 5
-          ? { $set: { failedLoginAttempts: 0, lockUntil } }
-          : { $set: { failedLoginAttempts }, $unset: { lockUntil: '' } }
-      );
+      user.failedLoginAttempts += 1;
+      if (user.failedLoginAttempts >= 5) {
+        user.lockUntil = new Date(Date.now() + 15 * 60 * 1000);
+        user.failedLoginAttempts = 0;
+      }
+      await user.save();
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
-    const postLoginUpdate: any = {
-      failedLoginAttempts: 0,
-      lockUntil: null,
-    };
-
-    // Backward compatibility: migrate legacy non-bcrypt passwords to bcrypt without full document validation.
-    if (!isBcryptHash(String(user.password || ''))) {
-      postLoginUpdate.password = await bcrypt.hash(password, 12);
+    // Backward compatibility: migrate legacy plaintext passwords to bcrypt.
+    if (!isBcryptHash(user.password)) {
+      user.password = password;
+      user.markModified('password');
     }
 
-    await User.updateOne(
-      { _id: user._id },
-      { $set: postLoginUpdate }
-    );
+    user.failedLoginAttempts = 0;
+    user.lockUntil = undefined;
+    await user.save();
 
     if (user.role === 'provider') {
       const provider = await Provider.findOne({ user: user._id });
@@ -269,12 +191,7 @@ export const getMe = async (req: AuthRequest, res: Response) => {
     if (user.role === 'provider') {
       providerData = await Provider.findOne({ user: user._id });
     }
-    const sanitizedUser = {
-      ...user.toObject(),
-      role: normalizeRoleForClient(String(user.role || 'user')),
-    };
-
-    res.json({ success: true, data: { user: sanitizedUser, provider: providerData }, message: 'Success' });
+    res.json({ success: true, data: { user, provider: providerData }, message: 'Success' });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message });
   }

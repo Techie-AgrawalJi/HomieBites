@@ -8,7 +8,7 @@ export interface IUser extends Document {
   phone: string;
   city: string;
   password: string;
-  role: 'user' | 'provider' | 'superadmin' | 'admin';
+  role: 'user' | 'provider' | 'superadmin';
   savedListings: mongoose.Types.ObjectId[];
   bookings: mongoose.Types.ObjectId[];
   resetPasswordToken?: string;
@@ -25,7 +25,7 @@ const UserSchema = new Schema<IUser>({
   phone: { type: String, required: true },
   city: { type: String, required: true },
   password: { type: String, required: true, minlength: 6 },
-  role: { type: String, enum: ['user', 'provider', 'superadmin', 'admin'], default: 'user' },
+  role: { type: String, enum: ['user', 'provider', 'superadmin'], default: 'user' },
   savedListings: [{ type: Schema.Types.ObjectId }],
   bookings: [{ type: Schema.Types.ObjectId, ref: 'Booking' }],
   resetPasswordToken: String,
@@ -41,113 +41,33 @@ UserSchema.pre('save', async function (next) {
 });
 
 UserSchema.methods.comparePassword = async function (password: string) {
-  const raw = String(this.password || '');
-  const candidates = Array.from(new Set([
-    raw,
-    raw.trim(),
-    raw.replace(/^"|"$/g, '').trim(),
-    raw.replace(/^'|'$/g, '').trim(),
-    raw.startsWith('{bcrypt}') ? raw.slice(8).trim() : raw,
-  ])).filter(Boolean);
+  const stored = String(this.password || '');
+  const isBcryptHash = /^\$2[abxy]\$\d{2}\$/.test(stored);
 
-  const passwordRaw = String(password || '');
-  const passwordTrimmed = passwordRaw.trim();
-  const digestCandidates = Array.from(new Set([
-    crypto.createHash('sha512').update(passwordRaw).digest('hex'),
-    crypto.createHash('sha256').update(passwordRaw).digest('hex'),
-    crypto.createHash('sha1').update(passwordRaw).digest('hex'),
-    crypto.createHash('md5').update(passwordRaw).digest('hex'),
-    crypto.createHash('sha512').update(passwordTrimmed).digest('hex'),
-    crypto.createHash('sha256').update(passwordTrimmed).digest('hex'),
-    crypto.createHash('sha1').update(passwordTrimmed).digest('hex'),
-    crypto.createHash('md5').update(passwordTrimmed).digest('hex'),
-  ]));
+  if (isBcryptHash) {
+    const normalizedHash = stored.startsWith('$2y$') || stored.startsWith('$2x$')
+      ? `$2b$${stored.slice(4)}`
+      : stored;
 
-  const passwordsToTry = Array.from(new Set([
-    passwordRaw,
-    passwordTrimmed,
-    ...digestCandidates,
-  ]));
-
-  const normalizeBcryptHash = (hash: string) => {
-    if (hash.startsWith('$2y$') || hash.startsWith('$2x$')) {
-      return `$2b$${hash.slice(4)}`;
-    }
-    return hash;
-  };
-
-  for (const candidate of candidates) {
-    if (/^\$2[abxy]\$\d{2}\$/.test(candidate)) {
-      const normalizedHash = normalizeBcryptHash(candidate);
-      for (const pwd of passwordsToTry) {
-        try {
-          if (await bcrypt.compare(pwd, normalizedHash)) {
-            return true;
-          }
-        } catch {
-          // Try next candidate format.
-        }
-      }
-    }
-
-    if (/^[a-f0-9]{128}$/i.test(candidate)) {
-      for (const pwd of passwordsToTry) {
-        const sha512 = crypto.createHash('sha512').update(pwd).digest('hex');
-        if (sha512.toLowerCase() === candidate.toLowerCase()) {
-          return true;
-        }
-      }
-    }
-
-    if (/^[a-f0-9]{64}$/i.test(candidate)) {
-      for (const pwd of passwordsToTry) {
-        const sha256 = crypto.createHash('sha256').update(pwd).digest('hex');
-        if (sha256.toLowerCase() === candidate.toLowerCase()) {
-          return true;
-        }
-      }
-    }
-
-    if (/^[a-f0-9]{40}$/i.test(candidate)) {
-      for (const pwd of passwordsToTry) {
-        const sha1 = crypto.createHash('sha1').update(pwd).digest('hex');
-        if (sha1.toLowerCase() === candidate.toLowerCase()) {
-          return true;
-        }
-      }
-    }
-
-    if (/^[a-f0-9]{32}$/i.test(candidate)) {
-      for (const pwd of passwordsToTry) {
-        const md5 = crypto.createHash('md5').update(pwd).digest('hex');
-        if (md5.toLowerCase() === candidate.toLowerCase()) {
-          return true;
-        }
-      }
-    }
-
-    // Some legacy systems stored base64-encoded plaintext or digest strings.
-    if (/^[A-Za-z0-9+/=]+$/.test(candidate) && candidate.length % 4 === 0) {
-      try {
-        const decoded = Buffer.from(candidate, 'base64').toString('utf8');
-        for (const pwd of passwordsToTry) {
-          if (decoded === pwd) {
-            return true;
-          }
-        }
-      } catch {
-        // Ignore invalid base64 and continue other checks.
-      }
-    }
-
-    for (const pwd of passwordsToTry) {
-      if (candidate === pwd) {
-        return true;
-      }
+    try {
+      return await bcrypt.compare(password, normalizedHash);
+    } catch {
+      return false;
     }
   }
 
-  return false;
+  // Legacy fallback: some historical records may store SHA hashes instead of bcrypt.
+  if (/^[a-f0-9]{64}$/i.test(stored)) {
+    const sha256 = crypto.createHash('sha256').update(password).digest('hex');
+    return sha256.toLowerCase() === stored.toLowerCase();
+  }
+
+  if (/^[a-f0-9]{40}$/i.test(stored)) {
+    const sha1 = crypto.createHash('sha1').update(password).digest('hex');
+    return sha1.toLowerCase() === stored.toLowerCase();
+  }
+
+  return stored === password;
 };
 
 UserSchema.methods.isLocked = function () {

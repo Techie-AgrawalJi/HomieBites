@@ -46,6 +46,7 @@ const PGModal: React.FC<PGModalProps> = ({ pg, detail, onClose, onViewMeal }) =>
   const { user } = useAuth();
   const isBookingRestrictedUser = ['provider', 'superadmin', 'admin'].includes(user?.role || '');
   const canSubmitReview = !!user && user.role === 'user';
+  const hasUserReview = !!(user && reviews.some((review) => review.user?._id === user._id));
   const rawPhotos = Array.isArray(pg.photos) ? pg.photos : [];
   const photos = rawPhotos
     .filter((src: unknown): src is string => typeof src === 'string')
@@ -432,45 +433,20 @@ const PGModal: React.FC<PGModalProps> = ({ pg, detail, onClose, onViewMeal }) =>
 
             {/* Reviews */}
             <div>
-              <div className="flex items-center justify-between gap-3 mb-3">
+              <div className="flex items-center justify-between gap-2 mb-3">
                 <h3 className="font-semibold">Reviews</h3>
                 {canSubmitReview && (
                   <button
                     type="button"
                     onClick={() => setShowReviewForm((prev) => !prev)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 text-white hover:bg-amber-600 transition-colors"
+                    className="px-3 py-1.5 text-xs font-semibold bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
                   >
-                    {showReviewForm ? 'Cancel' : 'Add Review'}
+                    {showReviewForm ? 'Close' : hasUserReview ? 'Edit Review' : 'Add Review'}
                   </button>
                 )}
               </div>
-              {reviewsLoading ? (
-                <p className="text-sm opacity-60">Loading reviews...</p>
-              ) : reviews.length === 0 ? (
-                <p className="text-sm opacity-60">No reviews yet.</p>
-              ) : (
-                <div className="space-y-3">
-                  {reviews.map((review) => (
-                    <div key={review._id} className="glass rounded-xl p-3">
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <p className="text-sm font-medium">{review.user?.name || 'User'}</p>
-                        <span className="text-xs opacity-50">{new Date(review.createdAt).toLocaleDateString()}</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-amber-400 mb-2">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <Star key={i} size={14} fill={i < review.rating ? 'currentColor' : 'none'} className={i < review.rating ? '' : 'text-slate-400 dark:text-slate-500'} />
-                        ))}
-                        {review.verifiedBooker && <span className="text-[11px] ml-2 px-2 py-0.5 rounded-full bg-green-500/20 text-green-400">Verified booker</span>}
-                      </div>
-                      <p className="text-sm opacity-80 leading-relaxed">{review.comment}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {!user && <p className="text-xs opacity-60 mt-3">Login as a registered user to add a review.</p>}
-              {user && user.role !== 'user' && <p className="text-xs opacity-60 mt-3">Only registered users can add reviews.</p>}
-              {canSubmitReview && showReviewForm && (
-                <div className="glass rounded-xl p-3 mt-4 space-y-3">
+              {showReviewForm && canSubmitReview && (
+                <div className="glass rounded-xl p-3 mb-4 space-y-3">
                   <div>
                     <p className="text-xs opacity-60 mb-1">Your Rating</p>
                     <div className="flex items-center gap-1">
@@ -502,6 +478,31 @@ const PGModal: React.FC<PGModalProps> = ({ pg, detail, onClose, onViewMeal }) =>
                   >
                     {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
                   </button>
+                </div>
+              )}
+              {!user && <p className="text-xs opacity-60 mb-3">Login as a registered user to add a review.</p>}
+              {user && user.role !== 'user' && <p className="text-xs opacity-60 mb-3">Only registered users can add reviews.</p>}
+              {reviewsLoading ? (
+                <p className="text-sm opacity-60">Loading reviews...</p>
+              ) : reviews.length === 0 ? (
+                <p className="text-sm opacity-60">No reviews yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {reviews.map((review) => (
+                    <div key={review._id} className="glass rounded-xl p-3">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <p className="text-sm font-medium">{review.user?.name || 'User'}</p>
+                        <span className="text-xs opacity-50">{new Date(review.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-amber-400 mb-2">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star key={i} size={14} fill={i < review.rating ? 'currentColor' : 'none'} className={i < review.rating ? '' : 'text-slate-400 dark:text-slate-500'} />
+                        ))}
+                        {review.verifiedBooker && <span className="text-[11px] ml-2 px-2 py-0.5 rounded-full bg-green-500/20 text-green-400">Verified booker</span>}
+                      </div>
+                      <p className="text-sm opacity-80 leading-relaxed">{review.comment}</p>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
