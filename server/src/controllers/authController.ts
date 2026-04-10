@@ -15,6 +15,14 @@ const signToken = (id: string) => {
 };
 
 const normalizeRoleForClient = (role: string) => (role === 'admin' ? 'superadmin' : role);
+const normalizeIdentifier = (value: string) =>
+  String(value || '')
+    .normalize('NFKC')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .trim()
+    .toLowerCase();
+
+const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const sendTokenResponse = (user: any, statusCode: number, res: Response) => {
   const token = signToken(user._id.toString());
@@ -40,7 +48,7 @@ const sendTokenResponse = (user: any, statusCode: number, res: Response) => {
 
 const isBcryptHash = (value: string) => /^\$2[abxy]\$\d{2}\$/.test(value || '');
 const findUserByEmail = async (email: string, includePassword = false) => {
-  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const normalizedEmail = normalizeIdentifier(email);
   if (!normalizedEmail) return null;
 
   // Fast path for records already normalized by current schema behavior.
@@ -65,7 +73,67 @@ const findUserByEmail = async (email: string, includePassword = false) => {
     legacyQuery.select('+password');
   }
 
-  return legacyQuery;
+  const legacyUser = await legacyQuery;
+  if (legacyUser) return legacyUser;
+
+  // Extra fallback for very old records where email may contain unexpected whitespace.
+  const regexFallback = User.findOne({
+    email: { $regex: new RegExp(`^\\s*${escapeRegex(normalizedEmail)}\\s*$`, 'i') },
+  });
+  if (includePassword) {
+    regexFallback.select('+password');
+  }
+
+  return regexFallback;
+};
+
+const findUserByProviderBusinessEmail = async (email: string, includePassword = false) => {
+  const normalizedEmail = normalizeIdentifier(email);
+  if (!normalizedEmail) return null;
+
+  const provider = await Provider.findOne({
+    $or: [
+      { businessEmail: normalizedEmail },
+      {
+        $expr: {
+          $eq: [
+            { $toLower: { $trim: { input: '$businessEmail' } } },
+            normalizedEmail,
+          ],
+        },
+      },
+      {
+        businessEmail: { $regex: new RegExp(`^\\s*${escapeRegex(normalizedEmail)}\\s*$`, 'i') },
+      },
+    ],
+  }).select('user');
+
+  if (!provider?.user) return null;
+
+  const query = User.findById(provider.user);
+  if (includePassword) {
+    query.select('+password');
+  }
+  return query;
+};
+
+const findUserForLogin = async (identifier: string, includePassword = false) => {
+  const normalizedIdentifier = normalizeIdentifier(identifier);
+  if (!normalizedIdentifier) return null;
+
+  let user = await findUserByEmail(normalizedIdentifier, includePassword);
+  if (user) return user;
+
+  user = await findUserByProviderBusinessEmail(normalizedIdentifier, includePassword);
+  if (user) return user;
+
+  // Legacy fallback: allow phone-based login for old production accounts.
+  const phoneCandidate = String(identifier || '').trim();
+  const query = User.findOne({ phone: phoneCandidate });
+  if (includePassword) {
+    query.select('+password');
+  }
+  return query;
 };
 
 export const signup = async (req: Request, res: Response) => {
@@ -127,14 +195,14 @@ export const providerSignup = async (req: Request, res: Response) => {
 
 export const login = async (req: Request, res: Response) => {
   try {
-    const email = String(req.body?.email || '').trim().toLowerCase();
+    const identifier = String(req.body?.email || '').trim();
     const password = String(req.body?.password || '');
 
-    if (!email || !password) {
+    if (!identifier || !password) {
       return res.status(400).json({ success: false, message: 'Email and password are required' });
     }
 
-    const user = await findUserByEmail(email, true);
+    const user = await findUserForLogin(identifier, true);
     if (!user) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
