@@ -117,6 +117,64 @@ body.modal-open {
   gap: 1.5rem;
 }
 
+.provider-form label {
+  font-size: 0.95rem;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: rgba(15, 23, 42, 0.78);
+}
+
+.dark .provider-form label {
+  color: rgba(241, 245, 249, 0.88);
+}
+
+.provider-form input:not([type="file"])::placeholder,
+.provider-form select::placeholder,
+.provider-form textarea::placeholder {
+  color: rgba(15, 23, 42, 0.38);
+  opacity: 1;
+  font-weight: 400;
+  font-style: italic;
+}
+
+.dark .provider-form input:not([type="file"])::placeholder,
+.dark .provider-form select::placeholder,
+.dark .provider-form textarea::placeholder {
+  color: rgba(241, 245, 249, 0.36);
+}
+
+.provider-form input:not([type="file"]),
+.provider-form select,
+.provider-form textarea {
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.provider-form input:not([type="file"]):focus,
+.provider-form select:focus,
+.provider-form textarea:focus {
+  border-color: rgba(245, 158, 11, 0.65);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.16), 0 12px 24px rgba(15, 23, 42, 0.18);
+  transform: translateY(-1px);
+  background-color: rgba(255, 255, 255, 0.92);
+}
+
+.dark .provider-form input:not([type="file"]):focus,
+.dark .provider-form select:focus,
+.dark .provider-form textarea:focus {
+  background-color: rgba(15, 23, 42, 0.85);
+}
+
+.provider-form input[type="file"] {
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.provider-form input[type="file"]:focus {
+  border-color: rgba(245, 158, 11, 0.65);
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.14), 0 12px 24px rgba(15, 23, 42, 0.14);
+  transform: translateY(-1px);
+}
+
 @media (max-width: 1024px) {
   .tabs-scroll {
     flex-wrap: nowrap;

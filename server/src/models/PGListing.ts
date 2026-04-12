@@ -9,7 +9,14 @@ export interface IPGListing extends Document {
   landmark: string;
   distanceFromLandmark: string;
   gender: 'male' | 'female' | 'unisex';
-  furnishing: 'furnished' | 'semi-furnished' | 'unfurnished';
+  furnishing:
+    | 'furnished'
+    | 'semi-furnished'
+    | 'unfurnished'
+    | 'furnished-semi-furnished'
+    | 'furnished-unfurnished'
+    | 'semi-furnished-unfurnished'
+    | 'mixed';
   roomTypes: {
     type: string;
     price: number;
@@ -46,7 +53,19 @@ const PGListingSchema = new Schema<IPGListing>({
   landmark: { type: String, default: '' },
   distanceFromLandmark: { type: String, default: '' },
   gender: { type: String, enum: ['male', 'female', 'unisex'], required: true },
-  furnishing: { type: String, enum: ['furnished', 'semi-furnished', 'unfurnished'], required: true },
+  furnishing: {
+    type: String,
+    enum: [
+      'furnished',
+      'semi-furnished',
+      'unfurnished',
+      'furnished-semi-furnished',
+      'furnished-unfurnished',
+      'semi-furnished-unfurnished',
+      'mixed',
+    ],
+    required: true,
+  },
   roomTypes: [{
     type: { type: String },
     price: Number,

@@ -161,6 +161,10 @@ const PGListings = () => {
             <option value="furnished">Furnished</option>
             <option value="semi-furnished">Semi-furnished</option>
             <option value="unfurnished">Unfurnished</option>
+            <option value="furnished-semi-furnished">Furnished + Semi-furnished</option>
+            <option value="furnished-unfurnished">Furnished + Unfurnished</option>
+            <option value="semi-furnished-unfurnished">Semi-furnished + Unfurnished</option>
+            <option value="mixed">Mixed (all types)</option>
           </select>
           <input value={filters.roomType} onChange={(e) => setFilters({ ...filters, roomType: e.target.value })} placeholder="Room type" className="px-3 py-2 glass rounded-xl text-sm outline-none" />
           <input type="number" value={filters.minBudget} onChange={(e) => setFilters({ ...filters, minBudget: e.target.value })} placeholder="Min budget" className="px-3 py-2 glass rounded-xl text-sm outline-none" />
