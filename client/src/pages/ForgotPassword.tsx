@@ -31,7 +31,7 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="auth-shell page-shell">
+    <div className="auth-shell page-shell" style={{ alignItems: 'flex-start', paddingTop: '1.5rem' }}>
       <div className="auth-container w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="font-heading page-title font-bold mb-2">Forgot Password</h1>

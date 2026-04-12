@@ -7,6 +7,8 @@ export interface IProvider extends Document {
   businessEmail: string;
   businessAddress: string;
   city: string;
+  state?: string;
+  pincode?: string;
   serviceType: 'pg' | 'meal' | 'both';
   location: {
     type: 'Point';
@@ -31,6 +33,8 @@ const ProviderSchema = new Schema<IProvider>({
   businessEmail: { type: String, required: true },
   businessAddress: { type: String, required: true },
   city: { type: String, required: true },
+  state: { type: String, default: '' },
+  pincode: { type: String, default: '' },
   serviceType: { type: String, enum: ['pg', 'meal', 'both'], required: true },
   location: {
     type: {

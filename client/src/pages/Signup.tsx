@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useGSAP } from '@gsap/react';
-import { Building2, UtensilsCrossed, User, Eye, EyeOff, LocateFixed } from 'lucide-react';
+import { Building2, User, Eye, EyeOff, LocateFixed } from 'lucide-react';
 import { animateFormFields, animateRoleCardBorder } from '../animations/pageTransitions';
 import { shakeElement } from '../animations/cardAnimations';
 import { useAuth } from '../context/AuthContext';
@@ -15,7 +15,7 @@ const Signup = () => {
   const [role, setRole] = useState<'user' | 'provider'>('user');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', phone: '', city: '', password: '', confirmPassword: '', businessName: '', businessPhone: '', businessEmail: '', businessAddress: '', serviceType: 'pg', latitude: '', longitude: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', city: '', state: '', pincode: '', password: '', confirmPassword: '', businessName: '', businessEmail: '', businessAddress: '', serviceType: 'pg' });
   const { refetch } = useAuth();
   const navigate = useNavigate();
 
@@ -32,14 +32,33 @@ const Signup = () => {
     setRole(r);
   };
 
-  const getLocation = () => {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setForm({ ...form, latitude: pos.coords.latitude.toString(), longitude: pos.coords.longitude.toString() });
-        toast.success('Location auto-filled!');
-      },
-      () => toast.error('Location access denied')
-    );
+  const getLocationByPincode = async () => {
+    const pin = form.pincode.trim();
+    if (!/^\d{6}$/.test(pin)) {
+      toast.error('Enter a valid 6-digit pincode');
+      return;
+    }
+
+    try {
+      const response = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
+      const data = await response.json();
+      const record = Array.isArray(data) ? data[0] : null;
+      const postOffice = record?.Status === 'Success' && Array.isArray(record?.PostOffice) ? record.PostOffice[0] : null;
+
+      if (!postOffice) {
+        toast.error('No location found for this pincode');
+        return;
+      }
+
+      setForm((prev) => ({
+        ...prev,
+        city: postOffice.District || prev.city,
+        state: postOffice.State || prev.state,
+      }));
+      toast.success('City and state auto-filled');
+    } catch {
+      toast.error('Unable to fetch location right now');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,6 +79,7 @@ const Signup = () => {
       } else {
         const fd = new FormData();
         Object.entries(form).forEach(([k, v]) => fd.append(k, v));
+        fd.append('businessPhone', form.phone);
         await api.post('/auth/provider-signup', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
         toast.success('Registration submitted! Awaiting admin approval.');
         navigate('/');
@@ -75,8 +95,8 @@ const Signup = () => {
   const f = (k: keyof typeof form) => ({ value: form[k], onChange: (e: any) => setForm({ ...form, [k]: e.target.value }) });
 
   return (
-    <div className="auth-shell page-shell">
-      <div className="auth-container w-full max-w-lg">
+    <div className="auth-shell page-shell" style={{ minHeight: 'auto' }}>
+      <div className={`auth-container w-full ${role === 'provider' ? 'max-w-3xl' : 'max-w-lg'}`}>
         <div className="text-center mb-8">
           <h1 className="font-heading page-title font-bold mb-2">Create Account</h1>
           <p className="opacity-60 page-subtitle">Join HomieBites - find your perfect home</p>
@@ -104,80 +124,95 @@ const Signup = () => {
                 <input {...f('name')} placeholder="John Doe" className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none focus:border-amber-500/60 transition-colors" required />
               </div>
               <div>
-                <label className="text-xs font-medium opacity-70 mb-1 block">City</label>
-                <input {...f('city')} placeholder="Bangalore" className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none focus:border-amber-500/60 transition-colors" required />
+                <label className="text-xs font-medium opacity-70 mb-1 block">Email</label>
+                <input type="email" {...f('email')} placeholder="you@example.com" className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none focus:border-amber-500/60 transition-colors" required />
               </div>
             </div>
 
             <div className="form-field two-col-form">
               <div>
-                <label className="text-xs font-medium opacity-70 mb-1 block">Email</label>
-                <input type="email" {...f('email')} placeholder="you@example.com" className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none focus:border-amber-500/60 transition-colors" required />
-              </div>
-              <div>
                 <label className="text-xs font-medium opacity-70 mb-1 block">Phone</label>
                 <input {...f('phone')} placeholder="+91 98765 43210" className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none focus:border-amber-500/60 transition-colors" required />
               </div>
+              {role === 'user' && (
+                <div>
+                  <label className="text-xs font-medium opacity-70 mb-1 block">City</label>
+                  <input {...f('city')} placeholder="Bangalore" className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none focus:border-amber-500/60 transition-colors" required />
+                </div>
+              )}
+              {role === 'provider' && (
+                <div>
+                  <label className="text-xs font-medium opacity-70 mb-1 block">Business Name</label>
+                  <input {...f('businessName')} placeholder="My PG & Meals" className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none focus:border-amber-500/60 transition-colors" />
+                </div>
+              )}
             </div>
 
             {role === 'provider' && (
               <>
-                <div className="form-field">
-                  <label className="text-xs font-medium opacity-70 mb-1 block">Business Name</label>
-                  <input {...f('businessName')} placeholder="My PG & Meals" className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none focus:border-amber-500/60 transition-colors" />
-                </div>
                 <div className="form-field two-col-form">
-                  <div>
-                    <label className="text-xs font-medium opacity-70 mb-1 block">Business Phone</label>
-                    <input {...f('businessPhone')} placeholder="+91..." className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none" />
-                  </div>
                   <div>
                     <label className="text-xs font-medium opacity-70 mb-1 block">Business Email</label>
                     <input type="email" {...f('businessEmail')} placeholder="biz@example.com" className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none" />
                   </div>
+                  <div>
+                    <label className="text-xs font-medium opacity-70 mb-1 block">Service Type</label>
+                    <select {...f('serviceType')} className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none">
+                      <option value="pg">PG Only</option>
+                      <option value="meal">Meal Only</option>
+                      <option value="both">Both PG & Meal</option>
+                    </select>
+                  </div>
                 </div>
-                <div className="form-field">
-                  <label className="text-xs font-medium opacity-70 mb-1 block">Business Address</label>
-                  <input {...f('businessAddress')} placeholder="Street, Area, City" className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none" />
+
+                <div className="form-field two-col-form">
+                  <div>
+                    <label className="text-xs font-medium opacity-70 mb-1 block">Business Address</label>
+                    <input {...f('businessAddress')} placeholder="Street, Area, City" className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium opacity-70 mb-1 block">City</label>
+                    <input {...f('city')} placeholder="Auto-filled from pincode" readOnly className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none read-only:opacity-70" />
+                  </div>
                 </div>
-                <div className="form-field">
-                  <label className="text-xs font-medium opacity-70 mb-1 block">Service Type</label>
-                  <select {...f('serviceType')} className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none">
-                    <option value="pg">PG Only</option>
-                    <option value="meal">Meal Only</option>
-                    <option value="both">Both PG & Meal</option>
-                  </select>
-                </div>
-                <div className="form-field">
-                  <label className="text-xs font-medium opacity-70 mb-1 block">Business Location</label>
-                  <div className="coord-row">
-                    <input {...f('latitude')} placeholder="Latitude" className="flex-1 px-3 py-2.5 glass rounded-xl text-sm outline-none" />
-                    <input {...f('longitude')} placeholder="Longitude" className="flex-1 px-3 py-2.5 glass rounded-xl text-sm outline-none" />
-                    <button type="button" onClick={getLocation} className="px-3 py-2.5 bg-amber-500/10 text-amber-500 rounded-xl hover:bg-amber-500/20 transition-colors">
-                      <LocateFixed size={16} />
-                    </button>
+
+                <div className="form-field two-col-form">
+                  <div>
+                    <label className="text-xs font-medium opacity-70 mb-1 block">Pincode</label>
+                    <div className="coord-row">
+                      <input {...f('pincode')} inputMode="numeric" maxLength={6} placeholder="560001" className="flex-1 px-3 py-2.5 glass rounded-xl text-sm outline-none" />
+                      <button type="button" onClick={getLocationByPincode} className="px-3 py-2.5 bg-amber-500/10 text-amber-500 rounded-xl hover:bg-amber-500/20 transition-colors">
+                        <LocateFixed size={16} />
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium opacity-70 mb-1 block">State</label>
+                    <input {...f('state')} placeholder="Auto-filled from pincode" readOnly className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none read-only:opacity-70" />
                   </div>
                 </div>
               </>
             )}
 
-            <div className="form-field">
-              <label className="text-xs font-medium opacity-70 mb-1 block">Password</label>
-              <div className="relative">
-                <input type={showPass ? 'text' : 'password'} {...f('password')} placeholder="Min 6 characters" className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none focus:border-amber-500/60 transition-colors pr-10" required />
-                <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50">
-                  {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
+            <div className="form-field two-col-form">
+              <div>
+                <label className="text-xs font-medium opacity-70 mb-1 block">Password</label>
+                <div className="relative">
+                  <input type={showPass ? 'text' : 'password'} {...f('password')} placeholder="Min 6 characters" className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none focus:border-amber-500/60 transition-colors pr-10" required />
+                  <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50">
+                    {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium opacity-70 mb-1 block">Confirm Password</label>
+                <input type="password" {...f('confirmPassword')} placeholder="Repeat password" className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none focus:border-amber-500/60 transition-colors" required />
               </div>
             </div>
 
-            <div className="form-field">
-              <label className="text-xs font-medium opacity-70 mb-1 block">Confirm Password</label>
-              <input type="password" {...f('confirmPassword')} placeholder="Repeat password" className="w-full px-3 py-2.5 glass rounded-xl text-sm outline-none focus:border-amber-500/60 transition-colors" required />
-            </div>
-
             <div className="form-field pt-2">
-              <button type="submit" disabled={loading} className="w-full py-3 bg-amber-500 text-white rounded-xl font-semibold hover:bg-amber-600 transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+              <button type="submit" disabled={loading} className="w-1/2 mx-auto py-3 bg-amber-500 text-white rounded-xl font-semibold hover:bg-amber-600 transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
                 {loading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : role === 'user' ? 'Create Account' : 'Submit for Approval'}
               </button>
             </div>

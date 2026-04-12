@@ -106,7 +106,7 @@ export const providerSignup = async (req: Request, res: Response) => {
     const {
       name, phone, city, password, confirmPassword,
       businessName, businessPhone, businessEmail, businessAddress,
-      serviceType, latitude, longitude,
+      serviceType, latitude, longitude, state, pincode,
     } = req.body;
     const email = String(req.body?.email || '').trim().toLowerCase();
     if (password !== confirmPassword) {
@@ -122,6 +122,8 @@ export const providerSignup = async (req: Request, res: Response) => {
     await Provider.create({
       user: user._id,
       businessName, businessPhone, businessEmail, businessAddress, city,
+      state: state || '',
+      pincode: pincode || '',
       serviceType: serviceType || 'pg',
       location: {
         type: 'Point',
@@ -269,15 +271,28 @@ export const forgotPassword = async (req: Request, res: Response) => {
     user.resetPasswordToken = token;
     user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000);
     await user.save();
-    const resetUrl = `${process.env.FRONTEND_BASE_URL}/reset-password/${token}`;
-    await sendEmail(email, 'HomieBites Password Reset', `
-      <h2>Password Reset</h2>
-      <p>Click the link below to reset your password (valid for 1 hour):</p>
-      <a href="${resetUrl}">${resetUrl}</a>
-    `);
+    const frontendBaseUrl = String(process.env.FRONTEND_BASE_URL || '').split(',')[0].trim();
+    if (!frontendBaseUrl) {
+      return res.status(500).json({ success: false, message: 'FRONTEND_BASE_URL is not configured' });
+    }
+
+    const resetUrl = `${frontendBaseUrl.replace(/\/$/, '')}/reset-password/${token}`;
+    try {
+      await sendEmail(email, 'HomieBites Password Reset', `
+        <h2>Password Reset</h2>
+        <p>Click the link below to reset your password (valid for 1 hour):</p>
+        <a href="${resetUrl}">${resetUrl}</a>
+      `);
+    } catch (emailErr) {
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpires = undefined;
+      await user.save();
+      throw emailErr;
+    }
     res.json({ success: true, data: null, message: 'Reset link sent to your email' });
   } catch (err: any) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error('Forgot password email error:', err);
+    res.status(500).json({ success: false, message: 'Unable to send reset email. Please check SMTP configuration.' });
   }
 };
 

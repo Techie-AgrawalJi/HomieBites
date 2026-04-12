@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useGSAP } from '@gsap/react';
 import { Eye, EyeOff, LogIn } from 'lucide-react';
-import { animateFormFields, animateRoleCardBorder } from '../animations/pageTransitions';
+import { animateFormFields } from '../animations/pageTransitions';
 import { shakeElement } from '../animations/cardAnimations';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -48,7 +48,7 @@ const Login = () => {
   };
 
   return (
-    <div className="auth-shell page-shell" style={{ alignItems: 'flex-start', paddingTop: '3rem' }}>
+    <div className="auth-shell page-shell" style={{ alignItems: 'flex-start', paddingTop: '1.5rem' }}>
       <div className="auth-container w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="font-heading page-title font-bold mb-2">Welcome back</h1>
