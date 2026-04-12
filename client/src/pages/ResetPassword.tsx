@@ -32,7 +32,7 @@ const ResetPassword = () => {
   };
 
   return (
-    <div className="auth-shell page-shell">
+    <div className="auth-shell page-shell" style={{ alignItems: 'flex-start', paddingTop: '0.75rem' }}>
       <div className="auth-container w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="font-heading page-title font-bold mb-2">Reset Password</h1>
