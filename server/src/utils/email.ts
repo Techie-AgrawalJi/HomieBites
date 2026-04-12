@@ -32,11 +32,16 @@ export const sendEmail = async (to: string, subject: string, html: string) => {
   }
 
   const fromAddress = String(process.env.SENDER_EMAIL || process.env.SMTP_USER || '').trim();
-  await transporter.sendMail({
+  const info = await transporter.sendMail({
     from: `HomieBites <${fromAddress}>`,
     to,
     subject,
     html,
   });
+
+  // Nodemailer may resolve even when provider rejects recipients.
+  if (!info.accepted?.length || (info.rejected && info.rejected.length > 0)) {
+    throw new Error(`Email provider rejected delivery. accepted=${info.accepted?.length || 0}, rejected=${info.rejected?.length || 0}`);
+  }
 };
 
