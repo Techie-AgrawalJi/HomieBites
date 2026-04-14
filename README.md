@@ -231,8 +231,3 @@ High-level deployment model:
 2. Requests to `/api/*` are routed to `api/index.ts`.
 3. The serverless handler initializes DB connection and forwards into the Express app.
 
-## Notes for Contributors
-
-- Keep role-based access behavior consistent between frontend protected routes and backend middleware.
-- Provider listing lifecycle should flow through listing requests for moderation consistency.
-- If server install issues occur due to peer dependencies, use the same strategy already encoded in root `postinstall`/Vercel config (`--legacy-peer-deps` for server install).
