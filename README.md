@@ -1,4 +1,4 @@
-# Listing Hub (HomieBites)
+# HomieBites
 
 A full-stack marketplace for city-based **PG accommodations** and **meal services**.
 
@@ -109,7 +109,7 @@ The platform connects seekers with verified providers, supports role-based dashb
 
 ### Prerequisites
 
-- Node.js 18+ (recommended)
+- Node.js 18+
 - npm 9+
 - MongoDB instance (local or Atlas)
 
